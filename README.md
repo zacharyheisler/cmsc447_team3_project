@@ -3,7 +3,7 @@
 This repository contains the full-stack application for CMSC 447 Team 3.
 
 Tech Stack:
-- Frontend: TanStack / React
+- Frontend: React + Vite w/ Tanstack Router
 - Backend: NestJS
 - Database: PostgreSQL
 - ORM: Prisma
