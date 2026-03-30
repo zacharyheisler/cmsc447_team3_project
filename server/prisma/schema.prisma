@@ -12,3 +12,24 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model User {
+  userId          Int           @id @default(autoincrement()) @db.Integer @map("user_id")
+  email           String        @unique @db.VarChar(120)
+  phoneNumber     String        @unique @db.VarChar(20) @map("phone_number")
+  password        String        @db.VarChar(255)
+  accountCreated  DateTime      @default(now()) @db.Timestamp(0) @map("account_created")
+
+  // CompanyId Foreign key
+  companyId       Int           @map("company_id")
+  company         Company       @relation(fields: [companyId], references: [companyId])
+}
+
+model Company {
+  companyId       Int           @id @default(autoincrement()) @db.Integer @map("company_id")
+  name            String        @db.VarChar(120)
+  dateJoined      DateTime      @default(now()) @db.Timestamp(0) @map("date_joined")
+
+  // Map one-to-many relationship between Company-User
+  users           User[]       
+}
