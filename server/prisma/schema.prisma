@@ -33,3 +33,19 @@ model Company {
   // Map one-to-many relationship between Company-User
   users           User[]       
 }
+
+model TicketMessage {
+  messageId         Int         @id @default(autoincrement()) @db.Integer @map("message_id")
+  messageContent    String      @db.VarChar(1000)
+  sentAt            DateTime    @default(now()) @db.Timestamp(0) @map("sent_at")
+
+  // TicketId Foreign key
+  ticketId          Int         @map("ticket_id")
+  ticket            Ticket      @relation(fields: [ticketId], references: [ticketId])
+
+  // Sender Foreign key, can be a user or agent sending a message
+  userId            Int?        @map("user_id")
+  agentId           Int?        @map("agent_id")
+  user              User?       @relation(fields: [userId], references: [userId])
+  agent             Agent?      @relation(fields: [agentId], references: [agentId])
+}
