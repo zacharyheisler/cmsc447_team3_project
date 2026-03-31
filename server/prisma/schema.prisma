@@ -36,9 +36,10 @@ model Company {
 
 model TicketMessage {
   messageId         Int         @id @default(autoincrement()) @db.Integer @map("message_id")
-  messageContent    String      @db.VarChar(1000)
-  sentAt            DateTime    @default(now()) @db.Timestamp(0) @map("sent_at")
-
+  content           String      @db.VarChar(1000)
+  sent_at           DateTime    @default(now()) @db.Timestamp(0) @map("sent_at")
+  isAiGenerated     Boolean     @default(false) @map("is_ai_generated")
+  
   // TicketId Foreign key
   ticketId          Int         @map("ticket_id")
   ticket            Ticket      @relation(fields: [ticketId], references: [ticketId])
