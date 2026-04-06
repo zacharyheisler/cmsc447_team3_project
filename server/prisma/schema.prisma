@@ -1,8 +1,10 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+// Prisma schema for the Smart Support System
+// Design principle:
+// - User = base identity/account record
+// - Agent/Admin = role-extension tables
+// - Ticket = core support case
+// - TicketMessage = per-ticket chat history
+// - TicketStatusHistory = audit trail of status transitions
 
 generator client {
   provider = "prisma-client"
@@ -13,55 +15,175 @@ datasource db {
   provider = "postgresql"
 }
 
+// Allowed ticket categories.
+// Enum prevents invalid free-text values.
+enum TicketType {
+  BUG
+  TECH_SUPPORT
+  ACCOUNT
+  BILLING
+  FEATURE_REQUEST
+  OTHER
+}
+
+// Allowed lifecycle states for a ticket.
+// Used both on Ticket.current status and status history records.
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_ON_CUSTOMER
+  RESOLVED
+  CLOSED
+}
+
 model User {
-  userId         Int      @id @default(autoincrement()) @map("user_id") @db.Integer
-  email          String   @unique @db.VarChar(120)
-  phoneNumber    String   @unique @map("phone_number") @db.VarChar(20)
-  password       String   @db.VarChar(255)
+  // Base account/identity model for all people in the system.
+  // Regular users always exist here.
+  // Agents and Admins extend this model through one-to-one role tables.
+
+  userId      Int    @id @default(autoincrement()) @map("user_id") @db.Integer
+  username    String @unique @db.VarChar(80)
+  email       String @unique @db.VarChar(120)
+  phoneNumber String @unique @map("phone_number") @db.VarChar(20)
+
+  // Store hashed password only, never plaintext.
+  password String @db.VarChar(255)
+
   accountCreated DateTime @default(now()) @map("account_created") @db.Timestamp(0)
 
-  // CompanyId Foreign key
-  companyId      Int             @map("company_id")
-  company        Company         @relation(fields: [companyId], references: [companyId])
-  ticketMessages TicketMessage[]
+  // Each user belongs to one company.
+  companyId Int     @map("company_id")
+  company   Company @relation(fields: [companyId], references: [companyId])
+
+  // Optional one-to-one role extensions.
+  agent Agent?
+  admin Admin?
+
+  // One user can create many tickets.
+  createdTickets Ticket[] @relation("TicketCreatedBy")
+
+  // One user can send many ticket messages.
+  sentMessages TicketMessage[] @relation("UserSentMessages")
+
+  // One user can perform many status changes.
+  statusChanges TicketStatusHistory[] @relation("UserStatusChanges")
+
+  @@map("users")
 }
 
 model Company {
+  // Organizational grouping for users.
+
   companyId  Int      @id @default(autoincrement()) @map("company_id") @db.Integer
   name       String   @db.VarChar(120)
   dateJoined DateTime @default(now()) @map("date_joined") @db.Timestamp(0)
 
-  // Map one-to-many relationship between Company-User
+  // One company can have many users.
   users User[]
-}
 
-model TicketMessage {
-  messageId     Int      @id @default(autoincrement()) @map("message_id") @db.Integer
-  content       String   @db.VarChar(1000)
-  sent_at       DateTime @default(now()) @map("sent_at") @db.Timestamp(0)
-  isAiGenerated Boolean  @default(false) @map("is_ai_generated")
-
-  // TicketId Foreign key
-  ticketId          Int         @map("ticket_id")
-  ticket            Ticket      @relation(fields: [ticketId], references: [ticketId])
-
-  // Sender Foreign key, can be a user or agent sending a message
-  userId  Int?   @map("user_id")
-  agentId Int?   @map("agent_id")
-  user    User?  @relation(fields: [userId], references: [userId])
-  agent   Agent? @relation(fields: [agentId], references: [agentId])
+  @@map("companies")
 }
 
 model Agent {
-  // Agent info
-  agentId            Int    @id @default(autoincrement()) @map("agent_id") @db.Integer
-  email              String @unique @db.VarChar(120)
-  phoneNumber        String @unique @map("phone_number") @db.VarChar(20)
-  password           String @db.VarChar(255)
-  numTicketsAssigned Int    @default(0) @map("num_tickets_assigned")
-  numTicketsResolved Int    @default(0) @map("num_tickets_resolved")
+  // Agent is a privileged support role layered on top of a User account.
+  // We keep account/auth fields in User to avoid duplication.
 
-  // One agent -> many tickets
-  tickets            Ticket[] 
+  agentId Int  @id @default(autoincrement()) @map("agent_id") @db.Integer
+  userId  Int  @unique @map("user_id")
+  user    User @relation(fields: [userId], references: [userId])
 
+  // Simple metrics for dashboard/reporting.
+  numTicketsAssigned Int @default(0) @map("num_tickets_assigned")
+  numTicketsResolved Int @default(0) @map("num_tickets_resolved")
+
+  // One agent can be assigned many tickets.
+  assignedTickets Ticket[] @relation("TicketAssignedToAgent")
+
+  // One agent can send many ticket messages.
+  sentMessages TicketMessage[] @relation("AgentSentMessages")
+
+  @@map("agents")
+}
+
+model Admin {
+  // Admin is a privileged system-management role layered on top of User.
+  // This supports RBAC without duplicating identity/auth fields.
+
+  adminId Int  @id @default(autoincrement()) @map("admin_id") @db.Integer
+  userId  Int  @unique @map("user_id")
+  user    User @relation(fields: [userId], references: [userId])
+
+  @@map("admins")
+}
+
+model Ticket {
+  // Core support case record.
+  // A ticket is created by one user and may optionally be assigned to one agent.
+
+  ticketId Int          @id @default(autoincrement()) @map("ticket_id") @db.Integer
+  type     TicketType
+  status   TicketStatus @default(OPEN)
+
+  // Main issue description submitted by the user.
+  description String @db.VarChar(2000)
+
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamp(0)
+
+  // User who opened the ticket.
+  createdById Int  @map("created_by_user_id")
+  createdBy   User @relation("TicketCreatedBy", fields: [createdById], references: [userId])
+
+  // Agent currently assigned to the ticket, if any.
+  assignedToId Int?   @map("assigned_to_agent_id")
+  assignedTo   Agent? @relation("TicketAssignedToAgent", fields: [assignedToId], references: [agentId])
+
+  // Related chat messages and status transitions.
+  messages      TicketMessage[]
+  statusHistory TicketStatusHistory[]
+
+  @@map("tickets")
+}
+
+model TicketMessage {
+  // Message stored within a ticket conversation.
+  // Current design allows either a user OR an agent to be the sender.
+
+  messageId Int      @id @default(autoincrement()) @map("message_id") @db.Integer
+  content   String   @db.VarChar(1000)
+  sentAt    DateTime @default(now()) @map("sent_at") @db.Timestamp(0)
+
+  // Marks optional AI-generated draft/assistant content.
+  isAiGenerated Boolean @default(false) @map("is_ai_generated")
+
+  // Every message belongs to exactly one ticket.
+  ticketId Int    @map("ticket_id")
+  ticket   Ticket @relation(fields: [ticketId], references: [ticketId])
+
+  // Sender can be either a regular user or an agent.
+  // Application logic should enforce XOR:
+  // exactly one of userId or agentId must be non-null.
+  userId  Int?   @map("user_id")
+  agentId Int?   @map("agent_id")
+  user    User?  @relation("UserSentMessages", fields: [userId], references: [userId])
+  agent   Agent? @relation("AgentSentMessages", fields: [agentId], references: [agentId])
+
+  @@map("ticket_messages")
+}
+
+model TicketStatusHistory {
+  // Audit log for ticket status transitions.
+  // Keeps historical evidence of who changed a ticket and when.
+
+  ticketStatusHistoryId Int          @id @default(autoincrement()) @map("ticket_status_history_id") @db.Integer
+  oldStatus             TicketStatus @map("old_status")
+  newStatus             TicketStatus @map("new_status")
+  changedAt             DateTime     @default(now()) @map("changed_at") @db.Timestamp(0)
+
+  // User account responsible for the change.
+  statusChangeUserId Int  @map("status_change_user_id")
+  statusChangeUser   User @relation("UserStatusChanges", fields: [statusChangeUserId], references: [userId])
+
+  // Ticket whose status changed.
+  ticketId Int    @map("ticket_id")
+  ticket   Ticket @relation(fields: [ticketId], references: [ticketId])
 }
