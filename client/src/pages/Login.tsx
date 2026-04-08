@@ -19,17 +19,20 @@ export default function LoginPage() {
 		const enteredPassword = password.trim();
 
 		if ((identity === "admin" || identity === "admin@a-gassociates.com") && enteredPassword === "Admin12345") {
-			navigate("/admin-dashboard");
+			navigate("/dashboard");
+			sessionStorage.setItem("USER_ROLE", "admin");
 			return;
 		}
 
 		if ((identity === "user" || identity === "user@a-gassociates.com") && enteredPassword === "User12345") {
-			navigate("/user-dashboard");
+			navigate("/dashboard");
+			sessionStorage.setItem("USER_ROLE", "user");
 			return;
 		}
 
 		if ((identity === "agent" || identity === "agent@a-gassociates.com") && enteredPassword === "Agent12345") {
-			navigate("/agent-dashboard");
+			navigate("/dashboard");
+			sessionStorage.setItem("USER_ROLE", "agent");
 			return;
 		}
 

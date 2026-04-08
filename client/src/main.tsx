@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import "./index.css";
 import LoginPage from "./pages/Login";
 import RegisterPage from "./pages/Register";
+import Dashboard from "./pages/DashboardSelector";
 
 const root = document.getElementById("root");
 
@@ -18,10 +19,8 @@ ReactDOM.createRoot(root).render(
 				<Route path="/" element={<Navigate to="/login" replace />} />
 				<Route path="/login" element={<LoginPage />} />
 				<Route path="/register" element={<RegisterPage />} />
-				<Route path="/user-dashboard" element={<></>} />
-				<Route path="/agent-dashboard" element={<></>} />
-				<Route path="/admin-dashboard" element={<></>} />
-			</Routes>
+				<Route path="/dashboard" element={<Dashboard />} />
+      </Routes>
 		</BrowserRouter>
 	</StrictMode>
 );
