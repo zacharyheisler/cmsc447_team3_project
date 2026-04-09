@@ -70,3 +70,12 @@ p {
   font-size: 1.0rem;
   line-height: 1.5;
 }
+
+input:-webkit-autofill,
+textarea:-webkit-autofill,
+select:-webkit-autofill {
+  /* Change the background color */
+  -webkit-box-shadow: 0 0 0px 1000px #ffffff inset !important;
+  /* Change the text color */
+  -webkit-text-fill-color: var(--body-text) !important;
+}

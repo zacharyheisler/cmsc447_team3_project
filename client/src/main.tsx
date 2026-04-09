@@ -1,10 +1,26 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.tsx'
+import { StrictMode } from "react";
+import ReactDOM from "react-dom/client";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import "./index.css";
+import LoginPage from "./pages/Login";
+import RegisterPage from "./pages/Register";
+import Dashboard from "./pages/DashboardSelector";
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-)
+const root = document.getElementById("root");
+
+if (!root) {
+	throw new Error("Root element not found");
+}
+
+ReactDOM.createRoot(root).render(
+	<StrictMode>
+		<BrowserRouter>
+			<Routes>
+				<Route path="/" element={<Navigate to="/login" replace />} />
+				<Route path="/login" element={<LoginPage />} />
+				<Route path="/register" element={<RegisterPage />} />
+				<Route path="/dashboard" element={<Dashboard />} />
+      </Routes>
+		</BrowserRouter>
+	</StrictMode>
+);
