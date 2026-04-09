@@ -1,4 +1,4 @@
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate} from "react-router-dom";
 import { useState } from "react";
 import "./TicketScreen.css";
 
@@ -60,6 +60,7 @@ const exampleTickets = [
 export default function TicketScreen() {
   //get the real ticket id from route parameter
   const { ticketId } = useParams();
+  const navigate = useNavigate();
   //for demo, get the ticket 1 or 2
   const ticket = exampleTickets.find((t) => t.ticketId === Number(ticketId));
 
@@ -116,10 +117,14 @@ export default function TicketScreen() {
 
   return (
     <div className="ticket-screen">
+      {/*Back button*/}
+      <button className="button" onClick={() => navigate(-1)}>
+        Go Back
+      </button>
       <h1 className="ticket-title">Ticket #{ticket.ticketId} Details</h1>
       <div className="ticket-container">
         <div className="ticket-info">
-
+          
           {/*ticket type information*/}
           <div className="ticket-type">
             <p>

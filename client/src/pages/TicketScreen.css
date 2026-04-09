@@ -1,7 +1,6 @@
-/* Full screen layout */
 .ticket-screen {
   height: 100vh;
-  width: 100vw;
+  width: 90w;
   font-family: sans-serif;
   color: #323643;
   background: #ffffff;
@@ -17,13 +16,6 @@
   color: #ffffff;
 }
 
-/* Clearfix for floats */
-.ticket-content::after {
-  content: "";
-  display: table;
-  clear: both;
-}
-
 /* Left column: ticket info */
 .ticket-info {
   float: left;
@@ -36,22 +28,8 @@
   text-align: left; /* align content to left top */
 }
 
-.ticket-info {
-  float: left;
-  width: 50%;
-  height: calc(100vh);
-  padding: 2rem;
-  border-right: 1px solid #ccc;
-  overflow-y: auto;
-  box-sizing: border-box;
-  text-align: left; /* align content to left top */
-}
 
-
-
-
-
-/* Messages container */
+/* Messages container on right*/
 .messages {
   float: right;
   width: 50%;
@@ -65,12 +43,11 @@
 
 /* Scrollable message list above input */
 .message-list {
-  flex: 1; /* fill vertical space */
+  flex: 1;
   overflow-y: auto;
   padding-right: 0.5rem;
 }
 
-/* Input row: input + send button */
 .input-row {
   display: flex;
   gap: 0.5rem;
@@ -79,7 +56,7 @@
 
 /* Input row: input + send button */
 .input-row input {
-  flex: 1; /* take all remaining space */
+  flex: 1; 
   padding: 0.5rem;
   font-size: 1rem;
   border-radius: 4px;
@@ -88,10 +65,11 @@
   color: #000000; /* black text */
   box-sizing: border-box;
 }
+
 /* Status history container */
 .status-history {
   margin-top: 1rem;
-  height: 200px;        /* or adjust as needed */
+  height: 200px;        
   overflow-y: auto;     /* scroll if content exceeds height */
   padding: 0.5rem;
   border: 1px solid #ccc;
@@ -99,17 +77,14 @@
   background-color: #f9f9f9;
 }
 
-/* Remove default list styling and spacing */
-.status-history ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
 .status-history li {
   margin-bottom: 0.3rem;
 }
-
+/* Status history */
+.status-history ul {
+  list-style: none;
+  padding: 0;
+}
 
 .button {
   padding: 0.5rem 1rem;
@@ -119,8 +94,8 @@
   border: none;
   border-radius: 4px;
   cursor: pointer;
-   margin-left: 0.5rem; /* space from previous text/button */
-  margin-top: 0.25rem; /* small vertical spacing */
+   margin-left: 0.5rem;
+  margin-top: 0.25rem; 
 }
 /* Messages styling */
 .messages .message {
@@ -128,6 +103,7 @@
   padding: 0.5rem;
   border-radius: 5px;
 }
+
 
 .messages .message.user {
   background: #e0e0e0;
@@ -151,12 +127,3 @@
   color: #666;
 }
 
-/* Status history */
-.status-history ul {
-  list-style: none;
-  padding: 0;
-}
-
-.status-history li {
-  margin-bottom: 0.3rem;
-}

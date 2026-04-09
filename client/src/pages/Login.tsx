@@ -106,6 +106,7 @@ export default function LoginPage() {
 					<Link to="/register" className="text-(--primary-button) text-sm! hover:underline">Sign up</Link>
 				</span>
 			</form>
+			 <Link to="/tickets/2">Go to Ticket Screen</Link> 
 		</div>
 	);
 }
