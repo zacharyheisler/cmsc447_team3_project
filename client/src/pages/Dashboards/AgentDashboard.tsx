@@ -1,4 +1,6 @@
 import { Link } from "react-router-dom";
+import { MOCK_TICKETS } from "../../demo/mockTickets";
+import type { Ticket } from "../../types/types";
 
 const summaryCards = [
 	{ label: "Open Tickets", value: "12", detail: "4 need a response today" },
@@ -6,35 +8,7 @@ const summaryCards = [
 	{ label: "Resolved This Week", value: "18", detail: "Good job" },
 ];
 
-const assignedTickets = [
-	{
-		id: 1,
-		title: "ISSUE 1",
-		type: "BUG",
-		priority: "High",
-		status: "Open",
-		customer: "Customer1",
-		lastUpdated: "10 minutes ago",
-	},
-	{
-		id: 2,
-		title: "STYLE ISSUE",
-		type: "FEATURE_REQUEST",
-		priority: "Medium",
-		status: "In Progress",
-		customer: "Customer 2",
-		lastUpdated: "45 minutes ago",
-	},
-	{
-		id: 14,
-		title: "Billing ISSUE",
-		type: "BILLING",
-		priority: "High",
-		status: "Waiting on Customer",
-		customer: "Customer 3",
-		lastUpdated: "1 hour ago",
-	},
-];
+const assignedTickets: Ticket[] = MOCK_TICKETS;
 
 const teamQueue = [
 	"3 unassigned tickets were created in the last hour.",
@@ -144,14 +118,14 @@ export default function AgentDashboard() {
 						<div className="flex flex-col gap-4">
 							{assignedTickets.map((ticket) => (
 								<Link
-									key={ticket.id}
-									to={`/tickets/${ticket.id}`}
+									key={ticket.ticketId}
+									to={`/tickets/${ticket.ticketId}`}
 									className="block rounded-2xl border border-(--border-default) bg-(--surface-raised) p-4 no-underline transition hover:border-(--border-hover) hover:bg-(--surface-base)"
 								>
 									<div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
 										<div>
 											<p className="text-lg font-semibold text-(--headings-text)">
-												#{ticket.id} {ticket.title}
+												#{ticket.ticketId} {ticket.title}
 											</p>
 											<p className="mt-1 text-sm text-(--body-text)">
 												{ticket.customer} • {ticket.type} • {ticket.priority} priority
@@ -166,7 +140,7 @@ export default function AgentDashboard() {
 									</div>
 
 									<div className="mt-4 flex items-center justify-between text-sm text-(--body-text)">
-										<span>Last updated {ticket.lastUpdated}</span>
+										<span>Last updated {ticket.updatedAt}</span>
 										<span className="font-semibold text-(--primary-button)">Open ticket</span>
 									</div>
 								</Link>

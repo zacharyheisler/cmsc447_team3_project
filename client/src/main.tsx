@@ -5,7 +5,7 @@ import "./index.css";
 import LoginPage from "./pages/Login";
 import RegisterPage from "./pages/Register";
 import Dashboard from "./pages/DashboardSelector";
-import TicketScreen from "./pages/TicketScreen";
+import TicketScreen from "./pages/TicketScreen/TicketScreen";
 import AccountManagement from "./pages/AccountManagement";
 
 const root = document.getElementById("root");
