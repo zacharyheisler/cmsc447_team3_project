@@ -1,70 +1,10 @@
 import { Link } from "react-router-dom";
 import { useState } from "react";
+import { MOCK_AGENTS, MOCK_TICKETS } from "../../demo/mockTickets";
+import type { Agent, Ticket } from "../../types/types";
 
-type Agent = {
-  id: number;
-  name: string;
-};
-
-type Ticket = {
-  id: number;
-  title: string;
-  customer: string;
-  type: string;
-  priority: string;
-  status: string;
-  assignedAgentId: number | null;
-  lastUpdated: string;
-};
-
-const agents: Agent[] = [
-  { id: 1, name: "Agent Smith" },
-  { id: 2, name: "Agent Johnson" },
-  { id: 3, name: "Agent Lee" },
-];
-
-const initialTickets: Ticket[] = [
-  {
-    id: 101,
-    title: "Unable to log in",
-    customer: "Alice Carter",
-    type: "Login",
-    priority: "High",
-    status: "Open",
-    assignedAgentId: null,
-    lastUpdated: "10 min ago",
-  },
-  {
-    id: 102,
-    title: "Billing question",
-    customer: "Brian Lee",
-    type: "Billing",
-    priority: "Medium",
-    status: "In Progress",
-    assignedAgentId: 2,
-    lastUpdated: "25 min ago",
-  },
-  {
-    id: 103,
-    title: "Feature request for dashboard",
-    customer: "Chris Doe",
-    type: "Feature Request",
-    priority: "Low",
-    status: "Open",
-    assignedAgentId: null,
-    lastUpdated: "1 hour ago",
-  },
-  {
-    id: 104,
-    title: "Account verification problem",
-    customer: "Dana Fox",
-    type: "Account",
-    priority: "High",
-    status: "Pending",
-    assignedAgentId: 1,
-    lastUpdated: "2 hours ago",
-  },
-];
+const initialTickets: Ticket[] = MOCK_TICKETS;
+const agents: Agent[] = MOCK_AGENTS;
 
 function getAgentName(agentId: number | null) {
   if (agentId === null) return "Unassigned";
@@ -78,19 +18,19 @@ export default function AdminDashboard() {
   function handleAssign(ticketId: number, agentId: number | null) {
     setTickets((prevTickets) =>
       prevTickets.map((ticket) =>
-        ticket.id === ticketId
+        ticket.ticketId === ticketId
           ? { ...ticket, assignedAgentId: agentId }
           : ticket
       )
     );
   }
 
-  const openTickets = tickets.filter((ticket) => ticket.status === "Open").length;
+  const openTickets = tickets.filter((ticket) => ticket.status === 'OPEN').length;
   const unassignedTickets = tickets.filter(
     (ticket) => ticket.assignedAgentId === null
   ).length;
   const inProgressTickets = tickets.filter(
-    (ticket) => ticket.status === "In Progress"
+    (ticket) => ticket.status === "IN_PROGRESS"
   ).length;
 
   return (
@@ -143,14 +83,14 @@ export default function AdminDashboard() {
             <div className="space-y-4">
               {tickets.map((ticket) => (
                 <div
-                  key={ticket.id}
+                  key={ticket.ticketId}
                   className="rounded-xl border border-slate-200 p-4"
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="rounded-full bg-slate-200 px-3 py-1 text-xs font-semibold text-slate-700">
-                          #{ticket.id}
+                          #{ticket.ticketId}
                         </span>
                         <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
                           {ticket.status}
@@ -175,7 +115,7 @@ export default function AdminDashboard() {
                         </p>
                         <p>
                           <span className="font-medium">Last Updated:</span>{" "}
-                          {ticket.lastUpdated}
+                          {ticket.updatedAt}
                         </p>
                       </div>
                     </div>
@@ -189,7 +129,7 @@ export default function AdminDashboard() {
                         value={ticket.assignedAgentId ?? ""}
                         onChange={(e) => {
                           const value = e.target.value;
-                          handleAssign(ticket.id, value === "" ? null : Number(value));
+                          handleAssign(ticket.ticketId, value === "" ? null : Number(value));
                         }}
                       >
                         <option value="">Unassigned</option>
@@ -201,7 +141,7 @@ export default function AdminDashboard() {
                       </select>
 
                       <Link
-                        to={`/ticket/${ticket.id}`}
+                        to={`/tickets/${ticket.ticketId}`}
                         className="rounded-lg bg-slate-800 px-4 py-2 text-center text-sm font-medium text-white transition hover:bg-slate-700"
                       >
                         Open Ticket
