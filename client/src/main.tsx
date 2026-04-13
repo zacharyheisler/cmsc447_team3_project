@@ -5,8 +5,8 @@ import "./index.css";
 import LoginPage from "./pages/Login";
 import RegisterPage from "./pages/Register";
 import Dashboard from "./pages/DashboardSelector";
-import TicketScreen from "./pages/TicketScreen";
-import AgentDashboard from "./pages/Dashboards/AgentDashboard";
+import TicketScreen from "./pages/TicketScreen/TicketScreen";
+import AccountManagement from "./pages/AccountManagement";
 
 const root = document.getElementById("root");
 
@@ -22,8 +22,8 @@ ReactDOM.createRoot(root).render(
 				<Route path="/login" element={<LoginPage />} />
 				<Route path="/register" element={<RegisterPage />} />
 				<Route path="/dashboard" element={<Dashboard />} />
+				<Route path="/accounts" element={<AccountManagement />} />
 				<Route path="/tickets/:ticketId" element={<TicketScreen />} />
-				<Route path="/agent" element={<AgentDashboard />} />
       </Routes>
 		</BrowserRouter>
 	</StrictMode>

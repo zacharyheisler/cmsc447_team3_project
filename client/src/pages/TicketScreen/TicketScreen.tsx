@@ -1,6 +1,8 @@
 import { useParams, useNavigate} from "react-router-dom";
 import { useState } from "react";
 import "./TicketScreen.css";
+import { MOCK_AGENTS, MOCK_TICKETS } from "../../demo/mockTickets";
+import type { Agent, Ticket, TicketStatus } from "../../types/types";
 
 // available ticket types
 const ticketTypes = [
@@ -22,40 +24,7 @@ const ticketStatuses = [
 ];
 
 // example tickets for demo/screen show off
-const exampleTickets = [
-  {
-    ticketId: 1,
-    type: "BUG",
-    status: "OPEN",
-    description: "Login fails on Chrome",
-    createdAt: "4/7/26",
-    assignedTo: "Agent Smith",
-    messages: [
-      { messageId: 1, content: "I can't log in on chrome.", sender: "user", sentAt: "4/7/26 09:00" },
-      { messageId: 2, content: "Are you getting any error codes?", sender: "agent", sentAt: "4/7/26 09:15" },
-      { messageId: 3, content: "test message ", sender: "user", sentAt: "4/7/26 09:20" },
-      { messageId: 4, content: "test 2", sender: "user", sentAt: "4/7/26 09:20" },
-
-      { messageId: 5, content: "please give team 3 an A ", sender: "agent", sentAt: "4/7/26 09:25" }, //lol
-      { messageId: 6, content: "yeah", sender: "user", sentAt: "4/7/26 09:30" },
-    ],
-
-    statusHistory: [
-      { id: 1, oldStatus: "OPEN", newStatus: "IN_PROGRESS", changedBy: "Agent Smith", changedAt: "4/7/26 09:10" },
-    ],
-  },
-  //another example ticket 
-  {
-    ticketId: 2,
-    type: "FEATURE_REQUEST",
-    status: "IN_PROGRESS",
-    description: "Add dark mode to app",
-    createdAt: "4/6/26",
-    assignedTo: "Agent Jane",
-    messages: [],
-    statusHistory: [],
-  },
-];
+const exampleTickets: Ticket[] = MOCK_TICKETS;
 
 export default function TicketScreen() {
   //get the real ticket id from route parameter
@@ -87,6 +56,8 @@ export default function TicketScreen() {
 
   const [statusHistory, setStatusHistory] = useState(ticket.statusHistory);
 
+  const agents: Agent[] = MOCK_AGENTS;
+
   //temporary send message function for screen functionality
   //real message will also get sent to database as 
   const sendMessage = () => {
@@ -113,6 +84,12 @@ export default function TicketScreen() {
     setMessages([...messages, message]);
     //clear new message
     setNewMessage("");
+  }
+
+  function getAgentName(agentId: number | null) {
+    if (agentId === null) return "Unassigned";
+    const match = agents.find((agent) => agent.id === agentId);
+    return match ? match.name : "Unknown Agent";
   }
 
   return (
@@ -153,7 +130,9 @@ export default function TicketScreen() {
       
                   <select
                     value={tempType}
-                    onChange={(e) => setTempType(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                      setTempStatus(e.target.value as TicketStatus)
+                    }
                   >
                     {/*select the new type from a dropdown*/}
                     {ticketTypes.map((t) => (
@@ -214,7 +193,9 @@ export default function TicketScreen() {
                   <select
                     // select a new status from dropdown
                     value={tempStatus}
-                    onChange={(e) => setTempStatus(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                      setTempStatus(e.target.value as TicketStatus)
+                    }
                   >
                     {ticketStatuses.map((t) => (
                       <option key={t} value={t}>{t}</option>
@@ -311,7 +292,7 @@ export default function TicketScreen() {
           </div>
 
           {/*These can't be changed*/}
-          <p><strong>Assigned to:</strong> {ticket.assignedTo || "Unassigned"}</p>
+          <p><strong>Assigned to:</strong> {getAgentName(ticket.assignedAgentId) || "Unassigned"}</p>
           <p><strong>Created At:</strong> {ticket.createdAt}</p>
 
           {/*Ticket status historiy information*/}

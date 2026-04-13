@@ -1,6 +1,6 @@
 import AdminDashboard from "./Dashboards/AdminDashboard";
 import AgentDashboard from "./Dashboards/AgentDashboard";
-import UserDashboard from "./Dashboards/UserDashboard";
+import UserDashboard from "./Dashboards/UserDashboard/UserDashboard";
 
 export default function Dashboard() {
   // For Demo purposes
