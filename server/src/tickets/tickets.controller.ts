@@ -7,8 +7,14 @@ export class TicketsController {
 
   // GET /tickets
   @Get()
-  getTickets(@Query('userId') userId: string, @Query('agentId') agentId: string) {
+  getTickets(@Query('userId') userId?: string, @Query('agentId') agentId?: string) {
     return this.ticketsService.getTickets(Number(userId), Number(agentId));
+  }
+
+  // GET /tickets/:id
+  @Get(':id')
+  getTicketById(@Param('id') id: string) {
+    return this.ticketsService.getTicketById(Number(id));
   }
 
   // POST /tickets
