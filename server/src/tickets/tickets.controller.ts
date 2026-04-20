@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, Query, Delete } from '@nestjs/common';
 import { TicketsService } from './tickets.service';
 
 @Controller('tickets')
@@ -51,5 +51,10 @@ export class TicketsController {
   @Post(':id/history')
   addStatusHistory(@Param('id') id: string, @Body() body: any) {
     return this.ticketsService.addStatusHistory(Number(id), body);
+  }
+
+  @Delete(':id')
+  deleteTicket(@Param('id') id: string){
+    return this.ticketsService.deleteTicket(Number(id));
   }
 }
