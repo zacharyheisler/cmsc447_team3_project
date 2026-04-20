@@ -124,4 +124,15 @@ export class TicketsService {
       orderBy: { changedAt: 'desc' },
     });
   }
+
+
+  async deleteTicket(ticketId: number){
+    // first delete status history and messages
+    await this.prisma.ticketStatusHistory.deleteMany({ where: { ticketId } });
+    await this.prisma.ticketMessage.deleteMany({ where: { ticketId } });
+  
+    return this.prisma.ticket.delete({
+      where: {ticketId}
+    })
+  }
 }
