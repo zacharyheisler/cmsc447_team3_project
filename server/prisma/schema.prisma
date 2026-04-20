@@ -35,6 +35,13 @@ enum TicketStatus {
   CLOSED
 }
 
+// Admin integration
+enum UserRole {
+  USER
+  AGENT
+  ADMIN
+}
+
 model User {
   // Base account/identity model for all people in the system.
   // Regular users always exist here.
@@ -66,6 +73,12 @@ model User {
 
   // One user can perform many status changes.
   statusChanges TicketStatusHistory[] @relation("UserStatusChanges")
+
+  // Admin integration
+  role       UserRole @default(USER)
+  isActive   Boolean  @default(true) @map("is_active")
+  isVerified Boolean  @default(false) @map("is_verified")
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamp(0)
 
   @@map("users")
 }
