@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./TicketScreen.css";
 import { MOCK_AGENTS, MOCK_TICKETS } from "../../demo/mockTickets";
@@ -31,6 +31,7 @@ export default function TicketScreen() {
   const { ticketId } = useParams();
   const navigate = useNavigate();
 
+  const [searchParams] = useSearchParams();
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true); // Track loading state
   //for demo, get the ticket 1 or 2
@@ -88,6 +89,10 @@ export default function TicketScreen() {
   //  check if ticket exists 
   if (!ticket) return <p>Ticket #{ticketId} was not found in the database.</p>;
 
+  //see who is viewing the ticket
+  // should have userId or agentId in the url 
+  const viewerUserId = searchParams.get("userId");
+  const viewerAgentId = searchParams.get("agentId");
 
   //temporary send message function for screen functionality
   //real message will also get sent to database as 
@@ -98,11 +103,15 @@ export default function TicketScreen() {
 
     }
 
-     fetch(`http://localhost:3000/tickets/${ticketId}/messages`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ content: newMessage, userId: 1 }), // replace 1 with real logged-in user id
-  });
+    fetch(`http://localhost:3000/tickets/${ticketId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: newMessage,
+        userId: viewerUserId ? Number(viewerUserId) : null,
+        agentId: viewerAgentId ? Number(viewerAgentId) : null,
+      }), // replace 1 with real logged-in user id
+    });
 
     let nextId = 1;
     // make a temporary auto increment messageID for the screen demo
@@ -114,7 +123,7 @@ export default function TicketScreen() {
     const message = {
       messageId: nextId,
       content: newMessage,
-      sender: "user",
+      sender: viewerAgentId ? "agent" : "user",
       sentAt: new Date().toLocaleDateString(),
     };
 
@@ -153,7 +162,7 @@ export default function TicketScreen() {
                     className="button"
                     // get the current type and enable editing buttons
                     onClick={() => {
-                    
+
                       setTempType(type);
                       setEditingType(true);
                     }}
@@ -169,7 +178,7 @@ export default function TicketScreen() {
 
                   <select
                     value={tempType}
-                    onChange={(e) => setTempType(e.target.value)} 
+                    onChange={(e) => setTempType(e.target.value)}
                   >
                     {/*select the new type from a dropdown*/}
                     {ticketTypes.map((t) => (
@@ -182,12 +191,12 @@ export default function TicketScreen() {
                     className="button"
                     onClick={() => {
                       //set the selected type as new type, disable editing
-                       fetch(`http://localhost:3000/tickets/${ticketId}`, {
+                      fetch(`http://localhost:3000/tickets/${ticketId}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ type: tempType }),
                       });
-                      
+
                       setType(tempType);
                       setEditingType(false);
                     }}
@@ -249,11 +258,16 @@ export default function TicketScreen() {
                   <button
                     className="button"
                     onClick={() => {
-                       fetch(`http://localhost:3000/tickets/${ticketId}`, {
+                      fetch(`http://localhost:3000/tickets/${ticketId}`, {
                         method: 'PATCH',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ status: tempStatus }),
+                        body: JSON.stringify({
+                          status: tempStatus,
+                          oldStatus: status,
+                          statusChangeUserId: Number(viewerUserId ?? viewerAgentId),
+                        }),
                       });
+
 
                       // Add old status to statushistory
                       const newEntry = {
@@ -261,8 +275,7 @@ export default function TicketScreen() {
                         id: statusHistory.length > 0 ? statusHistory[statusHistory.length - 1].id + 1 : 1,
                         oldStatus: status,
                         newStatus: tempStatus,
-                        //temporaritly using current user for demo
-                        changedBy: "Current User",
+                        changedBy: viewerAgentId ? `Agent ${viewerAgentId}` : `User ${viewerUserId}`,
                         changedAt: new Date().toLocaleString(),
                       };
 
@@ -295,7 +308,7 @@ export default function TicketScreen() {
                 {description}
 
                 {/*Change description button*/}
-                 <button
+                <button
                   className="button"
                   onClick={() => {
                     setTempDescription(description);
@@ -321,7 +334,7 @@ export default function TicketScreen() {
                 {/*confirm button*/}
                 <button
                   className="button"
-                    onClick={() => {
+                  onClick={() => {
                     fetch(`http://localhost:3000/tickets/${ticketId}`, {
                       method: 'PATCH',
                       headers: { 'Content-Type': 'application/json' },
@@ -373,13 +386,18 @@ export default function TicketScreen() {
             {messages.length === 0 ? (
               <p>No messages yet.</p>
             ) : (
-              messages.map((msg) => (
-                <div key={msg.messageId} className={`message ${msg.sender}`}>
-                  <span className="sender">{msg.sender}:</span>
-                  <span className="content">{msg.content}</span>
-                  <span className="timestamp">{msg.sentAt}</span>
-                </div>
-              ))
+              messages.map((msg) => {
+                const sender = msg.sender         // locally created messages
+                  ?? (msg.agentId ? "agent" : "user");  // messages from DB
+
+                return (
+                  <div key={msg.messageId} className={`message ${sender}`}>
+                    <span className="sender">{sender}:</span>
+                    <span className="content">{msg.content}</span>
+                    <span className="timestamp">{msg.sentAt}</span>
+                  </div>
+                );
+              })
 
             )}
           </div>

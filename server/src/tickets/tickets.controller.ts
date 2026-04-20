@@ -46,4 +46,10 @@ export class TicketsController {
   getHistory(@Param('id') id: string) {
     return this.ticketsService.getHistory(Number(id));
   }
+
+  // POST /tickets/:id/history
+  @Post(':id/history')
+  addStatusHistory(@Param('id') id: string, @Body() body: any) {
+    return this.ticketsService.addStatusHistory(Number(id), body);
+  }
 }

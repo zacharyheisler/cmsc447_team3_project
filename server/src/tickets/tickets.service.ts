@@ -46,24 +46,51 @@ export class TicketsService {
     });
   }
 
-
+  async addStatusHistory(ticketId: number, body: {
+  oldStatus: any;
+  newStatus: any;
+  statusChangeUserId: number;
+}) {
+  return this.prisma.ticketStatusHistory.create({
+    data: {
+      ticketId,
+      oldStatus: body.oldStatus,
+      newStatus: body.newStatus,
+      statusChangeUserId: body.statusChangeUserId,
+    },
+  });
+}
   async updateTicket(ticketId: number, body: {
-    status?: any;
-    type?: any;
-    description?: any;
-    assignedToId?: number;
-  }) {
-    return this.prisma.ticket.update({
-      where: { ticketId },
-      data: {
-        ...(body.status && { status: body.status }),
-        ...(body.assignedToId !== undefined && { assignedToId: body.assignedToId }),
-         ...(body.type && { type: body.type }),
-         ...(body.description && { description: body.description }),
+  status?: any;
+  type?: any;
+  description?: any;
+  assignedToId?: number;
+  oldStatus?: any;
+  statusChangeUserId?: number;
+}) {
+  const updated = await this.prisma.ticket.update({
+    where: { ticketId },
+    data: {
+      ...(body.status && { status: body.status }),
+      ...(body.assignedToId !== undefined && { assignedToId: body.assignedToId }),
+      ...(body.type && { type: body.type }),
+      ...(body.description && { description: body.description }),
+    },
+  });
 
+  if (body.status && body.oldStatus && body.statusChangeUserId) {
+    await this.prisma.ticketStatusHistory.create({
+      data: {
+        ticketId,
+        oldStatus: body.oldStatus,
+        newStatus: body.status,
+        statusChangeUserId: body.statusChangeUserId,
       },
     });
   }
+
+  return updated;
+}
 
 
   async getMessages(ticketId: number) {
