@@ -1,5 +1,5 @@
-import { useParams, useNavigate} from "react-router-dom";
-import { useState } from "react";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useState, useEffect } from "react";
 import "./TicketScreen.css";
 import { MOCK_AGENTS, MOCK_TICKETS } from "../../demo/mockTickets";
 import type { Agent, Ticket, TicketStatus } from "../../types/types";
@@ -30,33 +30,69 @@ export default function TicketScreen() {
   //get the real ticket id from route parameter
   const { ticketId } = useParams();
   const navigate = useNavigate();
+
+  const [searchParams] = useSearchParams();
+  const [ticket, setTicket] = useState<Ticket | null>(null);
+  const [loading, setLoading] = useState(true); // Track loading state
   //for demo, get the ticket 1 or 2
-  const ticket = exampleTickets.find((t) => t.ticketId === Number(ticketId));
+  //const ticket = exampleTickets.find((t) => t.ticketId === Number(ticketId));
 
-  if (!ticket) return <p>Ticket not found</p>;
 
-  // 
-  const [messages, setMessages] = useState(ticket.messages);
+
+  const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
 
-  //set type and editing values
-  const [type, setType] = useState(ticket.type);
-  const [tempType, setTempType] = useState(ticket.type);
+  const [type, setType] = useState("");
+  const [tempType, setTempType] = useState("");
   const [editingType, setEditingType] = useState(false);
 
-  //set status and editing statuses
-  const [status, setStatus] = useState(ticket.status);
-  const [tempStatus, setTempStatus] = useState(ticket.status);
+  const [status, setStatus] = useState("");
+  const [tempStatus, setTempStatus] = useState("");
   const [editingStatus, setEditingStatus] = useState(false);
 
-  //set description and editing description
-  const [description, setDescription] = useState(ticket.description);
-  const [tempDescription, setTempDescription] = useState(ticket.description);
+  const [description, setDescription] = useState("");
+  const [tempDescription, setTempDescription] = useState("");
   const [editingDescription, setEditingDescription] = useState(false);
 
-  const [statusHistory, setStatusHistory] = useState(ticket.statusHistory);
+  const [statusHistory, setStatusHistory] = useState<any[]>([]);
 
   const agents: Agent[] = MOCK_AGENTS;
+
+
+  useEffect(() => {
+    setLoading(true);
+    fetch(`http://localhost:3000/tickets/${ticketId}`)
+      .then((res) => {
+        if (!res.ok) throw new Error("Ticket not found");
+        return res.json();
+      })
+      .then((data) => {
+        setTicket(data);
+        setMessages(data.messages || []);
+        setType(data.type);
+        setStatus(data.status);
+        setDescription(data.description);
+        setStatusHistory(data.statusHistory || []);
+      })
+      .catch((err) => {
+        console.error("Fetch error:", err);
+        setTicket(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
+  }, [ticketId]);
+
+  // check if ticket is being fetched
+  if (loading) return <p>Fetching Ticket #{ticketId} from database...</p>;
+
+  //  check if ticket exists 
+  if (!ticket) return <p>Ticket #{ticketId} was not found in the database.</p>;
+
+  //see who is viewing the ticket
+  // should have userId or agentId in the url 
+  const viewerUserId = searchParams.get("userId");
+  const viewerAgentId = searchParams.get("agentId");
 
   //temporary send message function for screen functionality
   //real message will also get sent to database as 
@@ -64,7 +100,18 @@ export default function TicketScreen() {
     // do not send empty message
     if (!newMessage.trim()) {
       return;
+
     }
+
+    fetch(`http://localhost:3000/tickets/${ticketId}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        content: newMessage,
+        userId: viewerUserId ? Number(viewerUserId) : null,
+        agentId: viewerAgentId ? Number(viewerAgentId) : null,
+      }), // replace 1 with real logged-in user id
+    });
 
     let nextId = 1;
     // make a temporary auto increment messageID for the screen demo
@@ -76,7 +123,7 @@ export default function TicketScreen() {
     const message = {
       messageId: nextId,
       content: newMessage,
-      sender: "user",
+      sender: viewerAgentId ? "agent" : "user",
       sentAt: new Date().toLocaleDateString(),
     };
 
@@ -101,7 +148,7 @@ export default function TicketScreen() {
       <h1 className="ticket-title">Ticket #{ticket.ticketId} Details</h1>
       <div className="ticket-container">
         <div className="ticket-info">
-          
+
           {/*ticket type information*/}
           <div className="ticket-type">
             <p>
@@ -115,6 +162,7 @@ export default function TicketScreen() {
                     className="button"
                     // get the current type and enable editing buttons
                     onClick={() => {
+
                       setTempType(type);
                       setEditingType(true);
                     }}
@@ -127,26 +175,30 @@ export default function TicketScreen() {
               {/*enable the editing buttons*/}
               {editingType && (
                 <>
-      
+
                   <select
                     value={tempType}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                      setTempStatus(e.target.value as TicketStatus)
-                    }
+                    onChange={(e) => setTempType(e.target.value)}
                   >
                     {/*select the new type from a dropdown*/}
                     {ticketTypes.map((t) => (
                       <option key={t} value={t}>{t}</option>
                     ))}
                   </select>
-                  
+
 
                   <button
                     className="button"
                     onClick={() => {
                       //set the selected type as new type, disable editing
-                      setType(tempType);        
-                      setEditingType(false);    
+                      fetch(`http://localhost:3000/tickets/${ticketId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type: tempType }),
+                      });
+
+                      setType(tempType);
+                      setEditingType(false);
                     }}
                   >
                     Confirm
@@ -177,6 +229,7 @@ export default function TicketScreen() {
                     className="button"
                     // get the current status and enable editing buttons
                     onClick={() => {
+
                       setTempStatus(status);
                       setEditingStatus(true);
                     }}
@@ -189,7 +242,7 @@ export default function TicketScreen() {
               {/*show editing buttons*/}
               {editingStatus && (
                 <>
-                
+
                   <select
                     // select a new status from dropdown
                     value={tempStatus}
@@ -205,21 +258,31 @@ export default function TicketScreen() {
                   <button
                     className="button"
                     onClick={() => {
+                      fetch(`http://localhost:3000/tickets/${ticketId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          status: tempStatus,
+                          oldStatus: status,
+                          statusChangeUserId: Number(viewerUserId ?? viewerAgentId),
+                        }),
+                      });
+
+
                       // Add old status to statushistory
                       const newEntry = {
                         // if status history length is not 0, add the status history incremented by 1
                         id: statusHistory.length > 0 ? statusHistory[statusHistory.length - 1].id + 1 : 1,
                         oldStatus: status,
                         newStatus: tempStatus,
-                        //temporaritly using current user for demo
-                        changedBy: "Current User", 
+                        changedBy: viewerAgentId ? `Agent ${viewerAgentId}` : `User ${viewerUserId}`,
                         changedAt: new Date().toLocaleString(),
                       };
 
                       // update current status
-                      setStatus(tempStatus);                  
+                      setStatus(tempStatus);
                       // append history
-                      setStatusHistory([...statusHistory, newEntry]); 
+                      setStatusHistory([...statusHistory, newEntry]);
                       setEditingStatus(false);
                     }}
                   >
@@ -272,6 +335,11 @@ export default function TicketScreen() {
                 <button
                   className="button"
                   onClick={() => {
+                    fetch(`http://localhost:3000/tickets/${ticketId}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ description: tempDescription }),
+                    });
                     setDescription(tempDescription);
                     setEditingDescription(false);
                   }}
@@ -300,7 +368,7 @@ export default function TicketScreen() {
           <div className="status-history">
             {statusHistory.length === 0 ? (
               <p>No status changes yet.</p>
-               ):(
+            ) : (
               <ul>
                 {statusHistory.map((h) => (
                   <li key={h.id}>
@@ -318,13 +386,18 @@ export default function TicketScreen() {
             {messages.length === 0 ? (
               <p>No messages yet.</p>
             ) : (
-              messages.map((msg) => (
-                <div key={msg.messageId} className={`message ${msg.sender}`}>
-                  <span className="sender">{msg.sender}:</span>
-                  <span className="content">{msg.content}</span>
-                  <span className="timestamp">{msg.sentAt}</span>
-                </div>
-              ))
+              messages.map((msg) => {
+                const sender = msg.sender         // locally created messages
+                  ?? (msg.agentId ? "agent" : "user");  // messages from DB
+
+                return (
+                  <div key={msg.messageId} className={`message ${sender}`}>
+                    <span className="sender">{sender}:</span>
+                    <span className="content">{msg.content}</span>
+                    <span className="timestamp">{msg.sentAt}</span>
+                  </div>
+                );
+              })
 
             )}
           </div>
