@@ -26,12 +26,17 @@ const ticketStatuses = [
 // example tickets for demo/screen show off
 const exampleTickets: Ticket[] = MOCK_TICKETS;
 
+// const exampleTickets: []
 export default function TicketScreen() {
   //get the real ticket id from route parameter
   const { ticketId } = useParams();
   const navigate = useNavigate();
 
   const [searchParams] = useSearchParams();
+
+  const viewerUserId = searchParams.get("userId");
+  const viewerAgentId = searchParams.get("agentId");
+
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true); // Track loading state
   //for demo, get the ticket 1 or 2
@@ -58,8 +63,35 @@ export default function TicketScreen() {
 
   const agents: Agent[] = MOCK_AGENTS;
 
+  const [viewerUsername, setViewerUsername] = useState<string>("");
+  const [assignedToName, setAssignedToName] = useState<string>("Unassigned");
 
+  
   useEffect(() => {
+
+    // Comment this block out if you want to use tickets from backend not demo
+   // /*
+  
+     const mockTicket = exampleTickets.find(
+      (t) => t.ticketId === Number(ticketId)
+    );
+
+    
+
+    // Will use mock tickets for demo if they are available instead of backend!
+    
+  if (mockTicket) {
+    setTicket(mockTicket);
+    setMessages(mockTicket.messages || []);
+    setType(mockTicket.type);
+    setStatus(mockTicket.status);
+    setDescription(mockTicket.description);
+    setStatusHistory(mockTicket.statusHistory || []);
+    setLoading(false);
+    return;
+  }
+
+ // */
     setLoading(true);
     fetch(`http://localhost:3000/tickets/${ticketId}`)
       .then((res) => {
@@ -82,6 +114,34 @@ export default function TicketScreen() {
         setLoading(false);
       });
   }, [ticketId]);
+   
+  useEffect(() => {
+    if (viewerAgentId) {
+      // Fetch the agent to get its linked userId, then fetch that user's username
+      fetch(`http://localhost:3000/agents/${viewerAgentId}`)
+        .then((res) => res.json())
+        .then((agent) =>
+          fetch(`http://localhost:3000/users/${agent.userId}`)
+        )
+        .then((res) => res.json())
+        .then((user) => setViewerUsername(user.username))
+        .catch(() => setViewerUsername(`Agent #${viewerAgentId}`));
+    } else if (viewerUserId) {
+      fetch(`http://localhost:3000/users/${viewerUserId}`)
+        .then((res) => res.json())
+        .then((user) => setViewerUsername(user.username))
+        .catch(() => setViewerUsername(`User #${viewerUserId}`));
+    }
+  }, [viewerAgentId, viewerUserId]);
+
+   useEffect(() => {
+  const data = ticket as any;
+  if (data?.assignedTo?.user?.username) {
+    setAssignedToName(data.assignedTo.user.username);
+  } else {
+    setAssignedToName("Unassigned");
+  }
+}, [ticket]);
 
   // check if ticket is being fetched
   if (loading) return <p>Fetching Ticket #{ticketId} from database...</p>;
@@ -91,8 +151,7 @@ export default function TicketScreen() {
 
   //see who is viewing the ticket
   // should have userId or agentId in the url 
-  const viewerUserId = searchParams.get("userId");
-  const viewerAgentId = searchParams.get("agentId");
+
 
   //temporary send message function for screen functionality
   //real message will also get sent to database as 
@@ -133,12 +192,30 @@ export default function TicketScreen() {
     setNewMessage("");
   }
 
-  function getAgentName(agentId: number | null) {
-    if (agentId === null) return "Unassigned";
-    const match = agents.find((agent) => agent.id === agentId);
-    return match ? match.name : "Unknown Agent";
-  }
+   const confirmStatusChange = async () => {
+    await fetch(`http://localhost:3000/tickets/${ticketId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: tempStatus,
+        oldStatus: status,
+        // TicketStatusHistory.statusChangeUserId links to User.userId
+        // If viewer is an agent, we still need their userId not agentId
+        statusChangeUserId: Number(viewerUserId ?? viewerAgentId),
+      }),
+    });
 
+    // Re-fetch status history so "changedBy" comes from DB with real usernames
+    const res = await fetch(`http://localhost:3000/tickets/${ticketId}`);
+    const updated = await res.json();
+    setStatusHistory(updated.statusHistory || []);
+    setStatus(tempStatus);
+    setEditingStatus(false);
+  };
+
+  
+
+  
   return (
     <div className="ticket-screen">
       {/*Back button*/}
@@ -255,39 +332,7 @@ export default function TicketScreen() {
                     ))}
                   </select>
 
-                  <button
-                    className="button"
-                    onClick={() => {
-                      fetch(`http://localhost:3000/tickets/${ticketId}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                          status: tempStatus,
-                          oldStatus: status,
-                          statusChangeUserId: Number(viewerUserId ?? viewerAgentId),
-                        }),
-                      });
-
-
-                      // Add old status to statushistory
-                      const newEntry = {
-                        // if status history length is not 0, add the status history incremented by 1
-                        id: statusHistory.length > 0 ? statusHistory[statusHistory.length - 1].id + 1 : 1,
-                        oldStatus: status,
-                        newStatus: tempStatus,
-                        changedBy: viewerAgentId ? `Agent ${viewerAgentId}` : `User ${viewerUserId}`,
-                        changedAt: new Date().toLocaleString(),
-                      };
-
-                      // update current status
-                      setStatus(tempStatus);
-                      // append history
-                      setStatusHistory([...statusHistory, newEntry]);
-                      setEditingStatus(false);
-                    }}
-                  >
-                    Confirm
-                  </button>
+                   <button className="button" onClick={confirmStatusChange}>Confirm</button>
 
                   <button
                     className="button"
@@ -360,7 +405,7 @@ export default function TicketScreen() {
           </div>
 
           {/*These can't be changed*/}
-          <p><strong>Assigned to:</strong> {getAgentName(ticket.assignedAgentId) || "Unassigned"}</p>
+<p><strong>Assigned to:</strong> {assignedToName}</p>
           <p><strong>Created At:</strong> {ticket.createdAt}</p>
 
           {/*Ticket status historiy information*/}
@@ -371,8 +416,8 @@ export default function TicketScreen() {
             ) : (
               <ul>
                 {statusHistory.map((h) => (
-                  <li key={h.id}>
-                    {h.changedAt}: {h.oldStatus} → {h.newStatus} (by {h.changedBy})
+                  <li key={h.TicketStatusHistoryId}>
+                    {h.changedAt}: {h.oldStatus} → {h.newStatus} (by {h.statusChangeUser?.username ?? "Unknown"})
                   </li>
                 ))}
               </ul>

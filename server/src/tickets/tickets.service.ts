@@ -21,27 +21,41 @@ export class TicketsService {
 
     return [];
   }
-
-  async getTicketById(id: number){
-    return this.prisma.ticket.findUnique({
-    where: { ticketId: id }, 
+async getTicketById(id: number) {
+  return this.prisma.ticket.findUnique({
+    where: { ticketId: id },
     include: {
+      assignedTo: {
+        include: {
+          user: {
+            select: { username: true }
+          }
+        }
+      },
       messages: true,
-      statusHistory: true,
+      statusHistory: {
+        include: {
+          statusChangeUser: {
+            select: { username: true }
+          }
+        }
+      },
     },
   });
-  }
+}
 
   async createTicket(body: {
     type: any;
     description: string;
     createdById: number;
+    assignedToId?: number;
   }) {
     return this.prisma.ticket.create({
       data: {
         type: body.type,
         description: body.description,
         createdById: body.createdById,
+        assignedToId: body.assignedToId ?? null,
       },
     });
   }
