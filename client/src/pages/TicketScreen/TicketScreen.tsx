@@ -43,7 +43,6 @@ export default function TicketScreen() {
   //const ticket = exampleTickets.find((t) => t.ticketId === Number(ticketId));
 
 
-
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState("");
 
@@ -70,7 +69,7 @@ export default function TicketScreen() {
   useEffect(() => {
 
     // Comment this block out if you want to use tickets from backend not demo
-   // /*
+    // /*
   
      const mockTicket = exampleTickets.find(
       (t) => t.ticketId === Number(ticketId)
@@ -78,7 +77,7 @@ export default function TicketScreen() {
 
     
 
-    // Will use mock tickets for demo if they are available instead of backend!
+    // Will use mock tickets for demo screenshots if they are available instead of backend!
     
   if (mockTicket) {
     setTicket(mockTicket);
@@ -91,7 +90,9 @@ export default function TicketScreen() {
     return;
   }
 
- // */
+  // comment out block ends here
+  // */
+
     setLoading(true);
     fetch(`http://localhost:3000/tickets/${ticketId}`)
       .then((res) => {
@@ -113,11 +114,12 @@ export default function TicketScreen() {
       .finally(() => {
         setLoading(false);
       });
+
   }, [ticketId]);
    
   useEffect(() => {
     if (viewerAgentId) {
-      // Fetch the agent to get its linked userId, then fetch that user's username
+      // fetch agent to get the user id, then their username
       fetch(`http://localhost:3000/agents/${viewerAgentId}`)
         .then((res) => res.json())
         .then((agent) =>
@@ -127,6 +129,7 @@ export default function TicketScreen() {
         .then((user) => setViewerUsername(user.username))
         .catch(() => setViewerUsername(`Agent #${viewerAgentId}`));
     } else if (viewerUserId) {
+      // if a user is viewing, get their nusername
       fetch(`http://localhost:3000/users/${viewerUserId}`)
         .then((res) => res.json())
         .then((user) => setViewerUsername(user.username))

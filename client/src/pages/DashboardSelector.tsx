@@ -6,7 +6,8 @@ export default function Dashboard() {
   // For Demo purposes
   const role = sessionStorage.getItem("USER_ROLE");
 
- 
+  sessionStorage.setItem("USER_ROLE", "agent");
+
 	if (role === "admin") {
 		return <AdminDashboard />;
 	}
