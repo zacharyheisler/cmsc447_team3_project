@@ -58,8 +58,8 @@ export default function TicketRow({ ticket }: Readonly<TicketRowProps>) {
 
       <td className="w-40 px-3 py-3 text-xs text-slate-500">
         <Link className="ticket-row-link" to={ticketPath}>
-          <p>{formatDate(referenceDate)}</p>
-          <p className="mt-1 text-slate-400">{getRelativeTimeLabel(referenceDate)}</p>
+          <p className="text-[16px]!">{formatDate(referenceDate)}</p>
+          <p className="mt-1 text-[12px]! text-slate-400">{getRelativeTimeLabel(referenceDate)}</p>
         </Link>
       </td>
     </tr>
