@@ -33,7 +33,7 @@ export default function TicketTable({
           <button
             type="button"
             onClick={onOpenCreateModal}
-            className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+            className="inline-flex h-8 items-center gap-1 rounded-md border border-slate-600 bg-slate-700 px-3 text-sm font-medium text-slate-200 transition hover:bg-slate-800"
           >
             <FaPlus size={11} />
             Create

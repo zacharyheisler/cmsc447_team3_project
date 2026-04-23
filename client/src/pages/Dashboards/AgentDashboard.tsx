@@ -1,6 +1,14 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { MOCK_TICKETS } from "../../demo/mockTickets";
-import type { Ticket } from "../../types/types";
+import type { Ticket, TicketStatus } from "../../types/types";
+
+const STATUS_LABELS: Record<TicketStatus, string> = {
+	OPEN: "Open",
+	IN_PROGRESS: "In Progress",
+	WAITING_ON_CUSTOMER: "Awaiting Reply",
+	RESOLVED: "Resolved",
+	CLOSED: "Closed",
+};
 
 const summaryCards = [
 	{ label: "Open Tickets", value: "12", detail: "4 need a response today" },
@@ -17,27 +25,35 @@ const teamQueue = [
 ];
 
 const recentActivity = [
-	"Ticket #14 moved to Waiting on Customer response.",
+	"Ticket #14 moved to Awaiting Reply.",
 	"Ticket #9 was reassigned.",
 	"Ticket #6 was resolved.",
 ];
 
-function getStatusClasses(status: string) {
-	if (status === "Open") {
-		return "bg-(--danger-surface) text-(--danger-text)";
-	}
-
-	if (status === "In Progress") {
-		return "bg-[rgba(51,104,232,0.12)] text-(--primary-button)";
-	}
-
+function getStatusClasses(_status: TicketStatus) {
 	return "bg-(--surface-muted) text-(--headings-text)";
 }
 
 export default function AgentDashboard() {
+	const navigate = useNavigate();
+
+	function handleSignOut() {
+		sessionStorage.removeItem("USER_ROLE");
+		navigate("/login");
+	}
+
 	return (
 		<div className="min-h-screen w-full bg-linear-to-br from-(--surface-base) via-(--surface-raised) to-(--surface-muted) px-4 py-6 md:px-6 lg:px-8">
 			<div className="mx-auto flex w-full max-w-6xl flex-col gap-6">
+				<div className="flex justify-end">
+					<button
+						type="button"
+						onClick={handleSignOut}
+						className="rounded-lg border border-(--border-default) bg-(--surface-base) px-4 py-2 text-sm font-medium text-(--headings-text) transition hover:bg-(--surface-muted)"
+					>
+						Sign out
+					</button>
+				</div>
 				<section className="overflow-hidden rounded-3xl border border-(--border-default) bg-(--surface-base) shadow-[0_12px_30px_rgba(31,35,40,0.08)]">
 					<div className="grid lg:grid-cols-[1.4fr_0.9fr]">
 						<div className="bg-(--accent-gray-blue) px-6 py-8 text-(--surface-base) md:px-8 md:py-10">
@@ -52,13 +68,13 @@ export default function AgentDashboard() {
 
 							<div className="mt-6 flex flex-wrap gap-3">
 								<Link
-									to="/tickets/1"
+									to="/tickets/101"
 									className="inline-flex min-h-11 items-center justify-center rounded-lg bg-(--primary-button) px-5 py-3 text-sm font-semibold text-(--surface-base) no-underline transition hover:brightness-95"
 								>
 									Open Priority Ticket
 								</Link>
 								<Link
-									to="/tickets/2"
+									to="/tickets/109"
 									className="inline-flex min-h-11 items-center justify-center rounded-lg border border-white/30 bg-white/8 px-5 py-3 text-sm font-semibold text-(--surface-base) no-underline transition hover:bg-white/14"
 								>
 									Review Feature Request
@@ -135,7 +151,7 @@ export default function AgentDashboard() {
 										<span
 											className={`inline-flex w-fit rounded-full px-3 py-1 text-sm font-semibold ${getStatusClasses(ticket.status)}`}
 										>
-											{ticket.status}
+											{STATUS_LABELS[ticket.status] ?? ticket.status}
 										</span>
 									</div>
 

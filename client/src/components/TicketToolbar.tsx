@@ -26,7 +26,7 @@ export default function TicketToolbar({
     () => [
       { value: 'OPEN', label: 'Open' },
       { value: 'IN_PROGRESS', label: 'In Progress' },
-      { value: 'WAITING_ON_CUSTOMER', label: 'Pending' },
+      { value: 'WAITING_ON_CUSTOMER', label: 'Awaiting Reply' },
       { value: 'RESOLVED', label: 'Resolved' },
       { value: 'CLOSED', label: 'Closed' },
     ],

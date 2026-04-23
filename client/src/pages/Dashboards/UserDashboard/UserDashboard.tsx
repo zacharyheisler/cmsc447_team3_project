@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FaArrowsRotate, FaCircleInfo, FaPlus } from 'react-icons/fa6';
 import CreateTicketModal from '../../../components/CreateTicketModal';
 import TicketTable from '../../../components/TicketTable';
@@ -61,6 +62,7 @@ function simulateDelay(ms: number): Promise<void> {
 }
 
 export default function UserDashboard() {
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -93,7 +95,10 @@ export default function UserDashboard() {
       if (withFailureChance && Math.random() < 0.15) {
         throw new Error('Failed to refresh tickets');
       }
-      setTickets(MOCK_TICKETS);
+      // Clone so local state doesn't share a reference with the mock array.
+      // Otherwise mutating MOCK_TICKETS later would cause duplicated entries
+      // when combined with functional setTickets updates.
+      setTickets([...MOCK_TICKETS]);
       setLastUpdated(new Date());
     } catch {
       setLoadError('Failed to load your tickets. Please try again.');
@@ -179,7 +184,13 @@ export default function UserDashboard() {
       throw new Error('Validation failed');
     }
 
-    const nextId = tickets.length > 0 ? Math.max(...tickets.map((ticket) => ticket.ticketId)) + 1 : 1;
+    // Derive the next id from the shared mock array (the source of truth),
+    // not from local state, to avoid collisions if state is stale.
+    const allIds = [
+      ...MOCK_TICKETS.map((t) => t.ticketId),
+      ...tickets.map((t) => t.ticketId),
+    ];
+    const nextId = allIds.length > 0 ? Math.max(...allIds) + 1 : 1;
     const nextTicket: Ticket = {
       ticketId: nextId,
       title: payload.title,
@@ -193,7 +204,16 @@ export default function UserDashboard() {
       statusHistory: [],
     };
 
-    setTickets((prev) => [nextTicket, ...prev]);
+    // Persist to the shared mock tickets array so the new ticket is
+    // viewable on the TicketScreen and other dashboards.
+    MOCK_TICKETS.unshift(nextTicket);
+
+    // Use a de-duplicating updater in case local state already shares a
+    // reference with MOCK_TICKETS (or the ticket was already inserted).
+    setTickets((prev) => {
+      const filtered = prev.filter((t) => t.ticketId !== nextTicket.ticketId);
+      return [nextTicket, ...filtered];
+    });
     setCurrentPage(1);
     addToast({ variant: 'success', message: `Ticket #${nextTicket.ticketId} created successfully.` });
   };
@@ -202,6 +222,11 @@ export default function UserDashboard() {
     setIsRefreshing(true);
     await loadTickets(true);
     setIsRefreshing(false);
+  };
+
+  const handleSignOut = () => {
+    sessionStorage.removeItem('USER_ROLE');
+    navigate('/login');
   };
 
   return (
@@ -225,6 +250,13 @@ export default function UserDashboard() {
             >
               <FaArrowsRotate className={isRefreshing ? 'dashboard-spin' : ''} size={11} />
               {isRefreshing ? 'Refreshing...' : 'Refresh'}
+            </button>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 transition hover:bg-slate-50"
+            >
+              Sign out
             </button>
           </div>
         </header>

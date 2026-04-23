@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import TextField from "../components/Textfield";
 import registrationFlow from "../assets/registration_flow.png";
 import logo from "../assets/ag_associates_logo.png";
+import { MOCK_ACCOUNTS, type Account } from "../demo/mockAccounts";
 import {
   validateRegisterCompanyName,
   validateRegisterEmail,
@@ -54,8 +55,21 @@ export default function RegisterPage() {
     if (isRegisterButtonDisabled) {
       return;
     }
+// Push a new (unverified) account into the shared mock array so it shows
+    // up on the Admin Account Management page for demo purposes.
+    const newAccount: Account = {
+      id: Date.now(),
+      userId: `u${Date.now()}`,
+      name: username.trim(),
+      email: email.trim(),
+      role: "USER",
+      verified: false,
+      active: true,
+    };
+    MOCK_ACCOUNTS.unshift(newAccount);
 
-    navigate("/login");
+    
+    navigate("/login", { state: { justRegistered: true } });
   }
 
   return (

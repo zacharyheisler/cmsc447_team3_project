@@ -17,7 +17,7 @@ import type { TicketStatus, TicketType } from '../types/types';
 export const STATUS_LABELS: Record<TicketStatus, string> = {
   OPEN: 'Open',
   IN_PROGRESS: 'In Progress',
-  WAITING_ON_CUSTOMER: 'Pending',
+  WAITING_ON_CUSTOMER: 'Awaiting Reply',
   RESOLVED: 'Resolved',
   CLOSED: 'Closed',
 };
@@ -52,7 +52,7 @@ export const STATUS_FILTER_OPTIONS: Array<{ value: 'ALL' | TicketStatus; label: 
   { value: 'ALL', label: 'All statuses' },
   { value: 'OPEN', label: 'Open' },
   { value: 'IN_PROGRESS', label: 'In Progress' },
-  { value: 'WAITING_ON_CUSTOMER', label: 'Pending' },
+  { value: 'WAITING_ON_CUSTOMER', label: 'Awaiting Reply' },
   { value: 'RESOLVED', label: 'Resolved' },
   { value: 'CLOSED', label: 'Closed' },
 ];
@@ -111,7 +111,7 @@ export const STATUS_SUMMARY_META: Array<{
 }> = [
   { key: 'OPEN', label: 'Open', icon: <FaFolderOpen size={14} />, iconColorClass: 'text-blue-700' },
   { key: 'IN_PROGRESS', label: 'In Progress', icon: <FaArrowsRotate size={14} />, iconColorClass: 'text-yellow-700' },
-  { key: 'WAITING_ON_CUSTOMER', label: 'Pending', icon: <FaClock size={14} />, iconColorClass: 'text-orange-700' },
+  { key: 'WAITING_ON_CUSTOMER', label: 'Awaiting Reply', icon: <FaClock size={14} />, iconColorClass: 'text-orange-700' },
   { key: 'RESOLVED', label: 'Resolved', icon: <FaCircleCheck size={14} />, iconColorClass: 'text-emerald-700' },
   { key: 'CLOSED', label: 'Closed', icon: <FaCircleXmark size={14} />, iconColorClass: 'text-slate-700' },
 ];

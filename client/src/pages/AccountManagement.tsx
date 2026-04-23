@@ -1,58 +1,11 @@
 import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { MOCK_ACCOUNTS, type Account, type AccountRole } from "../demo/mockAccounts";
 
-type Role = "USER" | "AGENT" | "ADMIN";
-
-type Account = {
-  id: number;
-  userId: string;
-  name: string;
-  email: string;
-  role: Role;
-  verified: boolean;
-  active: boolean;
-};
-
-const initialAccounts: Account[] = [
-  {
-    id: 1,
-    userId: "u1001",
-    name: "Alice Carter",
-    email: "alice@example.com",
-    role: "USER",
-    verified: false,
-    active: true,
-  },
-  {
-    id: 2,
-    userId: "a2001",
-    name: "Brian Lee",
-    email: "brian@example.com",
-    role: "AGENT",
-    verified: true,
-    active: true,
-  },
-  {
-    id: 3,
-    userId: "adm3001",
-    name: "Chris Doe",
-    email: "chris@example.com",
-    role: "ADMIN",
-    verified: true,
-    active: true,
-  },
-  {
-    id: 4,
-    userId: "u1002",
-    name: "Dana Fox",
-    email: "dana@example.com",
-    role: "USER",
-    verified: false,
-    active: false,
-  },
-];
+type Role = AccountRole;
 
 export default function AccountManagement() {
-  const [accounts, setAccounts] = useState<Account[]>(initialAccounts);
+  const [accounts, setAccounts] = useState<Account[]>([...MOCK_ACCOUNTS]);
   const [newAccount, setNewAccount] = useState({
     userId: "",
     name: "",
@@ -60,7 +13,14 @@ export default function AccountManagement() {
     role: "USER" as Role,
   });
 
+  // Persist edits back to the shared mock array so other pages reflect them
+  function persistToMock(updater: (account: Account) => void, id: number) {
+    const target = MOCK_ACCOUNTS.find((a) => a.id === id);
+    if (target) updater(target);
+  }
+
   function handleUserIdChange(id: number, newUserId: string) {
+    persistToMock((a) => { a.userId = newUserId; }, id);
     setAccounts((prev) =>
       prev.map((account) =>
         account.id === id ? { ...account, userId: newUserId } : account
@@ -69,6 +29,7 @@ export default function AccountManagement() {
   }
 
   function handleRoleChange(id: number, newRole: Role) {
+    persistToMock((a) => { a.role = newRole; }, id);
     setAccounts((prev) =>
       prev.map((account) =>
         account.id === id ? { ...account, role: newRole } : account
@@ -77,6 +38,7 @@ export default function AccountManagement() {
   }
 
   function toggleVerified(id: number) {
+    persistToMock((a) => { a.verified = !a.verified; }, id);
     setAccounts((prev) =>
       prev.map((account) =>
         account.id === id
@@ -87,39 +49,12 @@ export default function AccountManagement() {
   }
 
   function toggleActive(id: number) {
+    persistToMock((a) => { a.active = !a.active; }, id);
     setAccounts((prev) =>
       prev.map((account) =>
         account.id === id ? { ...account, active: !account.active } : account
       )
     );
-  }
-
-  function handleCreateAccount() {
-    if (
-      !newAccount.userId.trim() ||
-      !newAccount.name.trim() ||
-      !newAccount.email.trim()
-    ) {
-      return;
-    }
-
-    const createdAccount: Account = {
-      id: Date.now(),
-      userId: newAccount.userId.trim(),
-      name: newAccount.name.trim(),
-      email: newAccount.email.trim(),
-      role: newAccount.role,
-      verified: false,
-      active: true,
-    };
-
-    setAccounts((prev) => [createdAccount, ...prev]);
-    setNewAccount({
-      userId: "",
-      name: "",
-      email: "",
-      role: "USER",
-    });
   }
 
   const stats = useMemo(() => {
@@ -134,13 +69,21 @@ export default function AccountManagement() {
   return (
     <div className="min-h-screen bg-slate-100 px-6 py-10 text-slate-800">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-8">
-          <h1 className="text-4xl font-bold tracking-tight">
-            Account Management
-          </h1>
-          <p className="mt-2 text-lg text-slate-600">
-            View, create, verify, edit, and deactivate accounts.
-          </p>
+        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <Link
+              to="/dashboard"
+              className="mb-2 inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline"
+            >
+              ← Back to Dashboard
+            </Link>
+            <h1 className="text-4xl font-bold tracking-tight">
+              Account Management
+            </h1>
+            <p className="mt-2 text-lg text-slate-600">
+              View, create, verify, edit, and deactivate accounts.
+            </p>
+          </div>
         </header>
 
         <section className="mb-10 grid gap-4 md:grid-cols-4">
@@ -162,68 +105,6 @@ export default function AccountManagement() {
           <div className="rounded-2xl bg-white p-6 shadow-sm">
             <p className="text-sm font-medium text-slate-500">Unverified</p>
             <p className="mt-2 text-3xl font-bold">{stats.unverified}</p>
-          </div>
-        </section>
-
-        <section className="mb-10 rounded-2xl bg-white p-6 shadow-sm">
-          <h2 className="text-2xl font-semibold">Create Account</h2>
-          <p className="mt-1 text-sm text-slate-500">
-            Add a new account to the system.
-          </p>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-            <input
-              type="text"
-              placeholder="User ID"
-              value={newAccount.userId}
-              onChange={(e) =>
-                setNewAccount((prev) => ({ ...prev, userId: e.target.value }))
-              }
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-
-            <input
-              type="text"
-              placeholder="Full name"
-              value={newAccount.name}
-              onChange={(e) =>
-                setNewAccount((prev) => ({ ...prev, name: e.target.value }))
-              }
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-
-            <input
-              type="email"
-              placeholder="Email"
-              value={newAccount.email}
-              onChange={(e) =>
-                setNewAccount((prev) => ({ ...prev, email: e.target.value }))
-              }
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            />
-
-            <select
-              value={newAccount.role}
-              onChange={(e) =>
-                setNewAccount((prev) => ({
-                  ...prev,
-                  role: e.target.value as Role,
-                }))
-              }
-              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-            >
-              <option value="USER">USER</option>
-              <option value="AGENT">AGENT</option>
-              <option value="ADMIN">ADMIN</option>
-            </select>
-
-            <button
-              type="button"
-              onClick={handleCreateAccount}
-              className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-500"
-            >
-              Create Account
-            </button>
           </div>
         </section>
 

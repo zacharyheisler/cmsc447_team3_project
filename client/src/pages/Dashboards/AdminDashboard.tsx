@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { MOCK_AGENTS, MOCK_TICKETS } from "../../demo/mockTickets";
 import type { Agent, Ticket } from "../../types/types";
@@ -13,9 +13,23 @@ function getAgentName(agentId: number | null) {
 }
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
 
+  function handleSignOut() {
+    sessionStorage.removeItem("USER_ROLE");
+    navigate("/login");
+  }
+
   function handleAssign(ticketId: number, agentId: number | null) {
+    // Persist to the shared mock array so Agent/User dashboards and the
+    // TicketScreen reflect the assignment change.
+    const target = MOCK_TICKETS.find((t) => t.ticketId === ticketId);
+    if (target) {
+      target.assignedAgentId = agentId;
+      target.updatedAt = new Date().toISOString();
+    }
+
     setTickets((prevTickets) =>
       prevTickets.map((ticket) =>
         ticket.ticketId === ticketId
@@ -36,11 +50,20 @@ export default function AdminDashboard() {
   return (
     <div className="min-h-screen bg-slate-100 px-6 py-10 text-slate-800">
       <div className="mx-auto max-w-7xl">
-        <header className="mb-8">
-          <h1 className="text-4xl font-bold tracking-tight">Admin Dashboard</h1>
-          <p className="mt-2 text-lg text-slate-600">
-            Monitor ticket flow, assign work to agents, and manage user accounts.
-          </p>
+        <header className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h1 className="text-4xl font-bold tracking-tight">Admin Dashboard</h1>
+            <p className="mt-2 text-lg text-slate-600">
+              Monitor ticket flow, assign work to agents, and manage user accounts.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={handleSignOut}
+            className="self-start rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 sm:self-auto"
+          >
+            Sign out
+          </button>
         </header>
 
         <section className="mb-10 grid gap-4 md:grid-cols-3">

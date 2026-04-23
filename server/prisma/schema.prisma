@@ -54,9 +54,14 @@ model User {
   companyId Int     @map("company_id")
   company   Company @relation(fields: [companyId], references: [companyId])
 
+  verifiedByAdminId Int? @map("verified_by_admin_id")
+  verifiedByAdmin   Admin? @relation("AdminVerifiedUsers", fields: [verifiedByAdminId], references: [adminId])
+
+  active Boolean @default(true)
+
   // Optional one-to-one role extensions.
   agent Agent?
-  admin Admin?
+  admin Admin? @relation("AdminUser")
 
   // One user can create many tickets.
   createdTickets Ticket[] @relation("TicketCreatedBy")
@@ -110,7 +115,9 @@ model Admin {
 
   adminId Int  @id @default(autoincrement()) @map("admin_id") @db.Integer
   userId  Int  @unique @map("user_id")
-  user    User @relation(fields: [userId], references: [userId])
+  user    User @relation("AdminUser", fields: [userId], references: [userId])
+
+  verifiedUsers User[] @relation("AdminVerifiedUsers")
 
   @@map("admins")
 }

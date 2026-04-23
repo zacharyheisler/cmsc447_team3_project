@@ -2,26 +2,43 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./TicketScreen.css";
 import { MOCK_AGENTS, MOCK_TICKETS } from "../../demo/mockTickets";
-import type { Agent, Ticket, TicketStatus } from "../../types/types";
+import type { Agent, Ticket, TicketStatus, TicketType } from "../../types/types";
 
-// available ticket types
-const ticketTypes = [
-  "BUG",
-  "TECH_SUPPORT",
-  "ACCOUNT",
-  "BILLING",
-  "FEATURE_REQUEST",
-  "OTHER"
+// available ticket types with human-readable labels
+const ticketTypes: Array<{ value: TicketType; label: string }> = [
+  { value: "BUG", label: "Bug" },
+  { value: "TECH_SUPPORT", label: "Tech Support" },
+  { value: "ACCOUNT", label: "Account" },
+  { value: "BILLING", label: "Billing" },
+  { value: "FEATURE_REQUEST", label: "Feature Request" },
+  { value: "OTHER", label: "Other" },
 ];
 
-// available ticket statuses
-const ticketStatuses = [
-  "OPEN",
-  "IN_PROGRESS",
-  "WAITING_ON_CUSTOMER",
-  "RESOLVED",
-  "CLOSED"
+const TYPE_LABEL: Record<TicketType, string> = {
+  BUG: "Bug",
+  TECH_SUPPORT: "Tech Support",
+  ACCOUNT: "Account",
+  BILLING: "Billing",
+  FEATURE_REQUEST: "Feature Request",
+  OTHER: "Other",
+};
+
+// available ticket statuses with human-readable labels
+const ticketStatuses: Array<{ value: TicketStatus; label: string }> = [
+  { value: "OPEN", label: "Open" },
+  { value: "IN_PROGRESS", label: "In Progress" },
+  { value: "WAITING_ON_CUSTOMER", label: "Awaiting Reply" },
+  { value: "RESOLVED", label: "Resolved" },
+  { value: "CLOSED", label: "Closed" },
 ];
+
+const STATUS_LABEL: Record<TicketStatus, string> = {
+  OPEN: "Open",
+  IN_PROGRESS: "In Progress",
+  WAITING_ON_CUSTOMER: "Awaiting Reply",
+  RESOLVED: "Resolved",
+  CLOSED: "Closed",
+};
 
 // example tickets for demo/screen show off
 const exampleTickets: Ticket[] = MOCK_TICKETS;
@@ -152,6 +169,10 @@ export default function TicketScreen() {
   //  check if ticket exists 
   if (!ticket) return <p>Ticket #{ticketId} was not found in the database.</p>;
 
+  // Helper: find the backing mock ticket (if any) so edits persist across navigation.
+  const getMockTicket = () =>
+    exampleTickets.find((t) => t.ticketId === Number(ticketId));
+
   //see who is viewing the ticket
   // should have userId or agentId in the url 
 
@@ -189,6 +210,13 @@ export default function TicketScreen() {
       sentAt: new Date().toLocaleDateString(),
     };
 
+    // Persist to mock data so it survives navigation
+    const mockTicket = getMockTicket();
+    if (mockTicket) {
+      mockTicket.messages = [...(mockTicket.messages || []), message];
+      mockTicket.updatedAt = new Date().toISOString();
+    }
+
     // add the message to the current messages  
     setMessages([...messages, message]);
     //clear new message
@@ -196,22 +224,57 @@ export default function TicketScreen() {
   }
 
    const confirmStatusChange = async () => {
-    await fetch(`http://localhost:3000/tickets/${ticketId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        status: tempStatus,
-        oldStatus: status,
-        // TicketStatusHistory.statusChangeUserId links to User.userId
-        // If viewer is an agent, we still need their userId not agentId
-        statusChangeUserId: Number(viewerUserId ?? viewerAgentId),
-      }),
-    });
+    const mockTicket = getMockTicket();
 
-    // Re-fetch status history so "changedBy" comes from DB with real usernames
-    const res = await fetch(`http://localhost:3000/tickets/${ticketId}`);
-    const updated = await res.json();
-    setStatusHistory(updated.statusHistory || []);
+    // Build a history entry (used for both mock and fallback cases)
+    const nextHistoryId =
+      statusHistory.length > 0
+        ? (statusHistory[statusHistory.length - 1].id ?? statusHistory.length) + 1
+        : 1;
+    const newHistoryEntry = {
+      id: nextHistoryId,
+      TicketStatusHistoryId: nextHistoryId,
+      oldStatus: status,
+      newStatus: tempStatus,
+      changedBy: viewerUsername || (viewerAgentId ? `Agent #${viewerAgentId}` : `User #${viewerUserId}`),
+      statusChangeUser: { username: viewerUsername || "You" },
+      changedAt: new Date().toLocaleString(),
+    };
+
+    if (mockTicket) {
+      // Persist to mock data so it survives navigation
+      mockTicket.status = tempStatus as TicketStatus;
+      mockTicket.statusHistory = [...(mockTicket.statusHistory || []), newHistoryEntry];
+      mockTicket.updatedAt = new Date().toISOString();
+
+      setStatus(tempStatus);
+      setStatusHistory(mockTicket.statusHistory);
+      setEditingStatus(false);
+      return;
+    }
+
+    try {
+      await fetch(`http://localhost:3000/tickets/${ticketId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: tempStatus,
+          oldStatus: status,
+          // TicketStatusHistory.statusChangeUserId links to User.userId
+          // If viewer is an agent, we still need their userId not agentId
+          statusChangeUserId: Number(viewerUserId ?? viewerAgentId),
+        }),
+      });
+
+      // Re-fetch status history so "changedBy" comes from DB with real usernames
+      const res = await fetch(`http://localhost:3000/tickets/${ticketId}`);
+      const updated = await res.json();
+      setStatusHistory(updated.statusHistory || []);
+    } catch (err) {
+      console.error("Status update failed:", err);
+      setStatusHistory((prev) => [...prev, newHistoryEntry]);
+    }
+
     setStatus(tempStatus);
     setEditingStatus(false);
   };
@@ -237,7 +300,7 @@ export default function TicketScreen() {
               {/*if the type is not currently being edited*/}
               {!editingType && (
                 <>
-                  {type}
+                  {TYPE_LABEL[type as TicketType] ?? type}
                   <button
                     className="button"
                     // get the current type and enable editing buttons
@@ -262,7 +325,7 @@ export default function TicketScreen() {
                   >
                     {/*select the new type from a dropdown*/}
                     {ticketTypes.map((t) => (
-                      <option key={t} value={t}>{t}</option>
+                      <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
 
@@ -271,11 +334,17 @@ export default function TicketScreen() {
                     className="button"
                     onClick={() => {
                       //set the selected type as new type, disable editing
-                      fetch(`http://localhost:3000/tickets/${ticketId}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ type: tempType }),
-                      });
+                      const mockTicket = getMockTicket();
+                      if (mockTicket) {
+                        mockTicket.type = tempType as Ticket["type"];
+                        mockTicket.updatedAt = new Date().toISOString();
+                      } else {
+                        fetch(`http://localhost:3000/tickets/${ticketId}`, {
+                          method: 'PATCH',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ type: tempType }),
+                        });
+                      }
 
                       setType(tempType);
                       setEditingType(false);
@@ -304,7 +373,7 @@ export default function TicketScreen() {
 
               {!editingStatus && (
                 <>
-                  {status}
+                  {STATUS_LABEL[status as TicketStatus] ?? status}
                   <button
                     className="button"
                     // get the current status and enable editing buttons
@@ -331,7 +400,7 @@ export default function TicketScreen() {
                     }
                   >
                     {ticketStatuses.map((t) => (
-                      <option key={t} value={t}>{t}</option>
+                      <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
 
@@ -383,11 +452,17 @@ export default function TicketScreen() {
                 <button
                   className="button"
                   onClick={() => {
-                    fetch(`http://localhost:3000/tickets/${ticketId}`, {
-                      method: 'PATCH',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ description: tempDescription }),
-                    });
+                    const mockTicket = getMockTicket();
+                    if (mockTicket) {
+                      mockTicket.description = tempDescription;
+                      mockTicket.updatedAt = new Date().toISOString();
+                    } else {
+                      fetch(`http://localhost:3000/tickets/${ticketId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ description: tempDescription }),
+                      });
+                    }
                     setDescription(tempDescription);
                     setEditingDescription(false);
                   }}
@@ -420,7 +495,7 @@ export default function TicketScreen() {
               <ul>
                 {statusHistory.map((h) => (
                   <li key={h.TicketStatusHistoryId}>
-                    {h.changedAt}: {h.oldStatus} → {h.newStatus} (by {h.statusChangeUser?.username ?? "Unknown"})
+                    {h.changedAt}: {STATUS_LABEL[h.oldStatus as TicketStatus] ?? h.oldStatus} → {STATUS_LABEL[h.newStatus as TicketStatus] ?? h.newStatus} (by {h.statusChangeUser?.username ?? "Unknown"})
                   </li>
                 ))}
               </ul>
