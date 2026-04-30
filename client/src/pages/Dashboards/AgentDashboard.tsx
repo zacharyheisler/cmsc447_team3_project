@@ -1,5 +1,5 @@
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { MOCK_TICKETS } from "../../demo/mockTickets";
 import type { Ticket, TicketStatus } from "../../types/types";
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
@@ -10,32 +10,82 @@ const STATUS_LABELS: Record<TicketStatus, string> = {
 	CLOSED: "Closed",
 };
 
-const summaryCards = [
-	{ label: "Open Tickets", value: "12", detail: "4 need a response today" },
-	{ label: "In Progress", value: "5", detail: "2 waiting on engineering team" },
-	{ label: "Resolved This Week", value: "18", detail: "Good job" },
-];
+type SummaryCard = {
+	label: string;
+	value: string;
+	detail: string;
+};
 
-const assignedTickets: Ticket[] = MOCK_TICKETS;
+type AgentRecord = {
+	agentId: number;
+	user?: {
+		username?: string;
+	};
+};
 
-const teamQueue = [
-	"3 unassigned tickets were created in the last hour.",
-	"2 customers have replied to tickets waiting on agent follow-up.",
-	"1 escalation is nearing its deadline this afternoon.",
-];
+type AgentDashboardData = {
+	summaryCards: SummaryCard[];
+	assignedTickets: Ticket[];
+	teamQueue: string[];
+	recentActivity: string[];
+	todaysFocus: {
+		firstResponseTarget: string;
+		customerRepliesWaiting: number;
+	};
+	priorityTicketId: number | null;
+	featureRequestTicketId: number | null;
+};
 
-const recentActivity = [
-	"Ticket #14 moved to Awaiting Reply.",
-	"Ticket #9 was reassigned.",
-	"Ticket #6 was resolved.",
-];
-
-function getStatusClasses(_status: TicketStatus) {
+function getStatusClasses() {
 	return "bg-(--surface-muted) text-(--headings-text)";
+}
+
+function formatDate(value?: string) {
+	if (!value) return "recently";
+	return new Intl.DateTimeFormat("en", {
+		month: "short",
+		day: "numeric",
+		hour: "numeric",
+		minute: "2-digit",
+	}).format(new Date(value));
 }
 
 export default function AgentDashboard() {
 	const navigate = useNavigate();
+	const [agentName, setAgentName] = useState("Agent");
+	const [dashboardData, setDashboardData] = useState<AgentDashboardData | null>(null);
+	const [loadError, setLoadError] = useState("");
+	const [isLoading, setIsLoading] = useState(true);
+
+	useEffect(() => {
+		async function loadDashboard() {
+			try {
+				setIsLoading(true);
+				setLoadError("");
+
+				const agentsResponse = await fetch("http://localhost:3000/agent-dashboard/agents");
+				if (!agentsResponse.ok) throw new Error("Unable to load agents");
+
+				const agents = (await agentsResponse.json()) as AgentRecord[];
+				const agent = agents[0];
+				if (!agent) throw new Error("No agents found in the database");
+
+				setAgentName(agent.user?.username ?? "Agent");
+
+				const dashboardResponse = await fetch(`http://localhost:3000/agent-dashboard/${agent.agentId}`);
+				if (!dashboardResponse.ok) throw new Error("Unable to load agent dashboard");
+
+				const data = (await dashboardResponse.json()) as AgentDashboardData;
+				setDashboardData(data);
+			} catch (error) {
+				setLoadError(error instanceof Error ? error.message : "Unable to load agent dashboard");
+			} finally {
+				setIsLoading(false);
+			}
+		}
+
+		void loadDashboard();
+	}, []);
 
 	function handleSignOut() {
 		sessionStorage.removeItem("USER_ROLE");
@@ -68,13 +118,13 @@ export default function AgentDashboard() {
 
 							<div className="mt-6 flex flex-wrap gap-3">
 								<Link
-									to="/tickets/101"
+									to={`/tickets/${dashboardData?.priorityTicketId ?? ""}`}
 									className="inline-flex min-h-11 items-center justify-center rounded-lg bg-(--primary-button) px-5 py-3 text-sm font-semibold text-(--surface-base) no-underline transition hover:brightness-95"
 								>
 									Open Priority Ticket
 								</Link>
 								<Link
-									to="/tickets/109"
+									to={`/tickets/${dashboardData?.featureRequestTicketId ?? ""}`}
 									className="inline-flex min-h-11 items-center justify-center rounded-lg border border-white/30 bg-white/8 px-5 py-3 text-sm font-semibold text-(--surface-base) no-underline transition hover:bg-white/14"
 								>
 									Review Feature Request
@@ -87,25 +137,41 @@ export default function AgentDashboard() {
 								<p className="text-sm font-semibold uppercase tracking-[0.22em] text-(--body-text)">
 									Today&apos;s Focus
 								</p>
-								<h3 className="mt-2 text-(--headings-text)">Keep high-priority work moving.</h3>
+								<h3 className="mt-2 text-(--headings-text)">Keep high-priority work moving, {agentName}.</h3>
 							</div>
 
 							<div className="grid gap-3">
 								<div className="rounded-2xl border border-(--border-default) bg-(--surface-base) p-4">
 									<p className="text-sm text-(--body-text)">First response target</p>
-									<p className="mt-1 text-2xl font-bold text-(--headings-text)">30 min</p>
+									<p className="mt-1 text-2xl font-bold text-(--headings-text)">
+										{dashboardData?.todaysFocus.firstResponseTarget ?? "30 min"}
+									</p>
 								</div>
 								<div className="rounded-2xl border border-(--border-default) bg-(--surface-base) p-4">
 									<p className="text-sm text-(--body-text)">Customer replies waiting</p>
-									<p className="mt-1 text-2xl font-bold text-(--headings-text)">3</p>
+									<p className="mt-1 text-2xl font-bold text-(--headings-text)">
+										{dashboardData?.todaysFocus.customerRepliesWaiting ?? 0}
+									</p>
 								</div>
 							</div>
 						</div>
 					</div>
 				</section>
 
+				{isLoading && (
+					<div className="rounded-2xl border border-(--border-default) bg-(--surface-base) p-5 text-sm text-(--body-text)">
+						Loading agent dashboard from the database...
+					</div>
+				)}
+
+				{loadError && (
+					<div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm font-medium text-red-700">
+						{loadError}
+					</div>
+				)}
+
 				<section className="grid gap-4 md:grid-cols-3">
-					{summaryCards.map((card) => (
+					{(dashboardData?.summaryCards ?? []).map((card) => (
 						<div
 							key={card.label}
 							className="rounded-2xl border border-(--border-default) bg-(--surface-base) p-5 shadow-[0_6px_18px_rgba(31,35,40,0.05)]"
@@ -127,12 +193,18 @@ export default function AgentDashboard() {
 								<h3 className="mt-2 text-(--headings-text)">Your active work</h3>
 							</div>
 							<span className="rounded-full bg-(--surface-muted) px-3 py-1 text-sm font-medium text-(--headings-text)">
-								{assignedTickets.length} tickets
+								{dashboardData?.assignedTickets.length ?? 0} tickets
 							</span>
 						</div>
 
 						<div className="flex flex-col gap-4">
-							{assignedTickets.map((ticket) => (
+							{dashboardData?.assignedTickets.length === 0 && (
+								<p className="rounded-2xl border border-(--border-default) bg-(--surface-raised) p-4 text-sm text-(--body-text)">
+									No tickets are assigned to this agent yet.
+								</p>
+							)}
+
+							{dashboardData?.assignedTickets.map((ticket) => (
 								<Link
 									key={ticket.ticketId}
 									to={`/tickets/${ticket.ticketId}`}
@@ -149,14 +221,14 @@ export default function AgentDashboard() {
 										</div>
 
 										<span
-											className={`inline-flex w-fit rounded-full px-3 py-1 text-sm font-semibold ${getStatusClasses(ticket.status)}`}
+											className={`inline-flex w-fit rounded-full px-3 py-1 text-sm font-semibold ${getStatusClasses()}`}
 										>
 											{STATUS_LABELS[ticket.status] ?? ticket.status}
 										</span>
 									</div>
 
 									<div className="mt-4 flex items-center justify-between text-sm text-(--body-text)">
-										<span>Last updated {ticket.updatedAt}</span>
+										<span>Last updated {formatDate(ticket.updatedAt)}</span>
 										<span className="font-semibold text-(--primary-button)">Open ticket</span>
 									</div>
 								</Link>
@@ -172,7 +244,7 @@ export default function AgentDashboard() {
 							<h3 className="mt-2 text-(--headings-text)">Needs attention</h3>
 
 							<div className="mt-5 flex flex-col gap-3">
-								{teamQueue.map((item) => (
+								{(dashboardData?.teamQueue ?? []).map((item) => (
 									<div
 										key={item}
 										className="rounded-2xl border border-(--border-default) bg-(--surface-raised) p-4"
@@ -190,7 +262,7 @@ export default function AgentDashboard() {
 							<h3 className="mt-2 text-(--headings-text)">Latest updates</h3>
 
 							<div className="mt-5 flex flex-col gap-3">
-								{recentActivity.map((item) => (
+								{(dashboardData?.recentActivity ?? []).map((item) => (
 									<div key={item} className="rounded-2xl bg-(--surface-muted) p-4">
 										<p className="text-sm leading-6 text-(--body-text)">{item}</p>
 									</div>
