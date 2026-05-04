@@ -70,6 +70,48 @@
 	color: var(--danger-text);
 }
 
+/* @component CompanyCombobox */
+
+.company-combobox-list {
+	position: absolute;
+	top: calc(100% + 4px);
+	left: 0;
+	right: 0;
+	z-index: 50;
+	margin: 0;
+	padding: 0.25rem 0;
+	list-style: none;
+	background-color: var(--surface-base);
+	border: 1px solid var(--border-default);
+	border-radius: 0.5rem;
+	box-shadow: 0 4px 12px var(--shadow-subtle);
+	max-height: 220px;
+	overflow-y: auto;
+}
+
+.company-combobox-option {
+	padding: 0.55rem 0.85rem;
+	font-size: 0.95rem;
+	color: var(--body-text);
+	cursor: pointer;
+}
+
+.company-combobox-option:hover,
+.company-combobox-option--active {
+	background-color: var(--surface-raised);
+}
+
+.company-combobox-create {
+	color: var(--primary-button);
+	border-top: 1px solid var(--border-default);
+}
+
+.company-combobox-empty {
+	padding: 0.55rem 0.85rem;
+	font-size: 0.9rem;
+	color: var(--paragraph-text);
+}
+
 /* @component Button */
 
 .textbutton {

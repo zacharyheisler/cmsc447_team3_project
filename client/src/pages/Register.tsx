@@ -1,75 +1,182 @@
-import { useState } from "react";
+import { useState, useEffect, type ChangeEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import TextField from "../components/Textfield";
+import CompanyCombobox from "../components/CompanyCombobox";
 import registrationFlow from "../assets/registration_flow.png";
 import logo from "../assets/ag_associates_logo.png";
-import { MOCK_ACCOUNTS, type Account } from "../demo/mockAccounts";
+import { MdErrorOutline } from "react-icons/md";
 import {
-  validateRegisterCompanyName,
+  normalizePhone,
   validateRegisterEmail,
   validateRegisterPassword,
   validateRegisterPhoneNumber,
   validateRegisterUsername,
 } from "../utils/validation";
+import { apiFetch } from "../utils/api";
+
+interface Company {
+  companyId: number;
+  name: string;
+}
 
 export default function RegisterPage() {
   const navigate = useNavigate();
-    // Textfield States
+
+  // ── Field states ────────────────────────────────────────────────────
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [companyName, setCompanyName] = useState("");
   const [password, setPassword] = useState("");
+  // ── Company selection (id = existing, name = new) ──────────────────
+  const [companyId, setCompanyId] = useState<number | null>(null);
+  const [companyName, setCompanyName] = useState<string | null>(null);
 
-    // Don't display empty error until after the field has been clicked once
+  // Don't show errors until a field has been blurred once
   const [touchedFields, setTouchedFields] = useState({
     username: false,
     email: false,
     phoneNumber: false,
-    companyName: false,
+    company: false,
     password: false,
   });
 
-    // Field Validation and error message collection
+  // ── Sync validation ─────────────────────────────────────────────────
   const usernameError = validateRegisterUsername(username);
   const emailError = validateRegisterEmail(email);
   const phoneNumberError = validateRegisterPhoneNumber(phoneNumber);
-  const companyNameError = validateRegisterCompanyName(companyName);
   const passwordError = validateRegisterPassword(password);
 
-    // Manage button whether button is disabled.
-  const isRegisterButtonDisabled = Boolean(
-    usernameError || emailError || phoneNumberError || companyNameError || passwordError,
-  );
+  // ── Async availability state ────────────────────────────────────────
+  const [usernameAvailError, setUsernameAvailError] = useState("");
+  const [emailAvailError, setEmailAvailError] = useState("");
+  const [phoneAvailError, setPhoneAvailError] = useState("");
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [isCheckingEmail, setIsCheckingEmail] = useState(false);
+  const [isCheckingPhone, setIsCheckingPhone] = useState(false);
 
-  function markFieldTouched(fieldName: keyof typeof touchedFields) {
-    setTouchedFields((currentFields) => ({
-      ...currentFields,
-      [fieldName]: true,
-    }));
-  }
+  // ── Companies list ──────────────────────────────────────────────────
+  const [companies, setCompanies] = useState<Company[]>([]);
 
-  function handleSubmit(e: any) {
-    e.preventDefault();
+  // ── Submit state ────────────────────────────────────────────────────
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
 
-    if (isRegisterButtonDisabled) {
+  // Load companies on mount
+  useEffect(() => {
+    apiFetch<Company[]>("/auth/companies").then(setCompanies).catch(() => {});
+  }, []);
+
+  // Async username availability check (debounced 400 ms)
+  useEffect(() => {
+    if (!touchedFields.username || usernameError || !username.trim()) {
+      setUsernameAvailError("");
       return;
     }
-// Push a new (unverified) account into the shared mock array so it shows
-    // up on the Admin Account Management page for demo purposes.
-    const newAccount: Account = {
-      id: Date.now(),
-      userId: `u${Date.now()}`,
-      name: username.trim(),
-      email: email.trim(),
-      role: "USER",
-      verified: false,
-      active: true,
-    };
-    MOCK_ACCOUNTS.unshift(newAccount);
+    setIsCheckingUsername(true);
+    const timer = setTimeout(async () => {
+      try {
+        const { available } = await apiFetch<{ available: boolean }>(
+          `/auth/check-username?username=${encodeURIComponent(username.trim())}`,
+        );
+        setUsernameAvailError(available ? "" : "Username is already taken.");
+      } catch {
+        // silently ignore network errors
+      } finally {
+        setIsCheckingUsername(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [username, touchedFields.username, usernameError]);
 
-    
-    navigate("/login", { state: { justRegistered: true } });
+  // Async email availability check (debounced 400 ms)
+  useEffect(() => {
+    if (!touchedFields.email || emailError || !email.trim()) {
+      setEmailAvailError("");
+      return;
+    }
+    setIsCheckingEmail(true);
+    const timer = setTimeout(async () => {
+      try {
+        const { available } = await apiFetch<{ available: boolean }>(
+          `/auth/check-email?email=${encodeURIComponent(email.trim())}`,
+        );
+        setEmailAvailError(available ? "" : "Email is already registered.");
+      } catch {
+        // silently ignore network errors
+      } finally {
+        setIsCheckingEmail(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [email, touchedFields.email, emailError]);
+
+  // Async phone availability check (debounced 400 ms)
+  useEffect(() => {
+    if (!touchedFields.phoneNumber || phoneNumberError || !phoneNumber.trim()) {
+      setPhoneAvailError("");
+      return;
+    }
+    setIsCheckingPhone(true);
+    const timer = setTimeout(async () => {
+      try {
+        const { available } = await apiFetch<{ available: boolean }>(
+          `/auth/check-phone?phone=${encodeURIComponent(normalizePhone(phoneNumber))}`,
+        );
+        setPhoneAvailError(available ? "" : "Phone number already in use.");
+      } catch {
+        // silently ignore network errors
+      } finally {
+        setIsCheckingPhone(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [phoneNumber, touchedFields.phoneNumber, phoneNumberError]);
+
+  function markFieldTouched(fieldName: keyof typeof touchedFields) {
+    setTouchedFields((current) => ({ ...current, [fieldName]: true }));
+  }
+
+  const isRegisterButtonDisabled = Boolean(
+    usernameError ||
+      usernameAvailError ||
+      emailError ||
+      emailAvailError ||
+      phoneNumberError ||
+      phoneAvailError ||
+      passwordError ||
+      (!companyId && !companyName) ||
+      isCheckingUsername ||
+      isCheckingEmail ||
+      isCheckingPhone ||
+      isSubmitting,
+  );
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (isRegisterButtonDisabled) return;
+
+    setIsSubmitting(true);
+    setSubmitError("");
+
+    try {
+      await apiFetch("/auth/register", {
+        method: "POST",
+        body: JSON.stringify({
+          username: username.trim(),
+          email: email.trim(),
+          phoneNumber: normalizePhone(phoneNumber),
+          password,
+          ...(companyId ? { companyId } : { companyName: companyName! }),
+        }),
+      });
+      navigate("/login", { state: { justRegistered: true } });
+    } catch (err) {
+      setSubmitError(
+        err instanceof Error ? err.message : "Registration failed. Please try again.",
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -92,9 +199,11 @@ export default function RegisterPage() {
             title="Username"
             placeholder="Choose a username"
             value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setUsername(e.target.value)}
             onBlur={() => markFieldTouched("username")}
-            errorMessage={touchedFields.username ? usernameError : ""}
+            errorMessage={
+              touchedFields.username ? usernameError || usernameAvailError : ""
+            }
           />
 
           <TextField
@@ -102,9 +211,9 @@ export default function RegisterPage() {
             type="email"
             placeholder="Enter your email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setEmail(e.target.value)}
             onBlur={() => markFieldTouched("email")}
-            errorMessage={touchedFields.email ? emailError : ""}
+            errorMessage={touchedFields.email ? emailError || emailAvailError : ""}
           />
 
           <TextField
@@ -112,7 +221,7 @@ export default function RegisterPage() {
             type="password"
             placeholder="Create a password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
             onBlur={() => markFieldTouched("password")}
             errorMessage={touchedFields.password ? passwordError : ""}
           />
@@ -121,22 +230,43 @@ export default function RegisterPage() {
             title="Phone number"
             placeholder="e.g. 123-456-7890"
             value={phoneNumber}
-            onChange={(e) => setPhoneNumber(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => setPhoneNumber(e.target.value)}
             onBlur={() => markFieldTouched("phoneNumber")}
-            errorMessage={touchedFields.phoneNumber ? phoneNumberError : ""}
+            errorMessage={touchedFields.phoneNumber ? phoneNumberError || phoneAvailError : ""}
           />
 
-          <TextField
-            title="Company name"
-            placeholder="Enter company name"
-            value={companyName}
-            onChange={(e) => setCompanyName(e.target.value)}
-            onBlur={() => markFieldTouched("companyName")}
-            errorMessage={touchedFields.companyName ? companyNameError : ""}
+          {/* Company search combobox */}
+          <CompanyCombobox
+            companies={companies}
+            onChange={(val) => {
+              if (val === null) {
+                setCompanyId(null);
+                setCompanyName(null);
+              } else if ('companyId' in val) {
+                setCompanyId(val.companyId!);
+                setCompanyName(null);
+              } else {
+                setCompanyId(null);
+                setCompanyName(val.companyName!);
+              }
+            }}
+            onBlur={() => markFieldTouched("company")}
+            errorMessage={touchedFields.company && !companyId && !companyName ? "Please select or enter a company." : ""}
           />
 
-          <button className="textbutton" type="submit" disabled={isRegisterButtonDisabled}>
-            Sign up
+          {submitError && (
+            <div className="flex flex-row justify-center bg-(--danger-surface) outline-(--danger-text) outline-1 rounded-lg p-2.75 gap-x-1">
+              <MdErrorOutline size={20} className="mt-0.5 text-(--danger-text)" />
+              <p className="text-(--danger-text)">{submitError}</p>
+            </div>
+          )}
+
+          <button
+            className="textbutton"
+            type="submit"
+            disabled={isRegisterButtonDisabled}
+          >
+            {isSubmitting ? "Creating account…" : "Sign up"}
           </button>
 
           <div className="flex bg-(--border-default) h-px mb-2 mt-2"></div>

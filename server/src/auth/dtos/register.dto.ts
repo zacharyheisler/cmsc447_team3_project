@@ -1,4 +1,4 @@
-import { IsEmail, IsInt, IsNotEmpty, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsInt, IsNotEmpty, IsOptional, IsString, MinLength, ValidateIf } from 'class-validator';
 
 export class RegisterDto {
   @IsString()
@@ -16,6 +16,13 @@ export class RegisterDto {
   @MinLength(8)
   password!: string;
 
+  // Provide an existing company's ID -OR- a new company name — not both.
+  @ValidateIf((o: RegisterDto) => !o.companyName)
   @IsInt()
-  companyId!: number;
+  companyId?: number;
+
+  @ValidateIf((o: RegisterDto) => !o.companyId)
+  @IsString()
+  @IsNotEmpty()
+  companyName?: string;
 }

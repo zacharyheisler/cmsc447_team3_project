@@ -45,16 +45,46 @@ export function validateRegisterPassword(value: string): string {
 	return "";
 }
 
-export function validateRegisterPhoneNumber(value: string): string {
-	const trimmedValue = value.trim();
-	const digitsOnly = trimmedValue.replace(/\D/g, "");
+export function normalizePhone(value: string): string {
+	const trimmed = value.trim();
+	if (trimmed.startsWith("+")) {
+		// International format: keep the + and all digits, strip other formatting chars
+		const digits = trimmed.slice(1).replace(/\D/g, "");
+		return "+" + digits;
+	}
+	// No country code provided — strip formatting and default to +1
+	const digits = trimmed.replace(/\D/g, "");
+	// If user typed 11 digits starting with 1, they included the US country code already
+	if (digits.length === 11 && digits.startsWith("1")) {
+		return "+1" + digits.slice(1);
+	}
+	return "+1" + digits;
+}
 
-	if (!trimmedValue) {
+export function validateRegisterPhoneNumber(value: string): string {
+	const trimmed = value.trim();
+
+	if (!trimmed) {
 		return "Phone number is required.";
 	}
 
-	if (digitsOnly.length !== 10) {
-		return "Enter a valid 10-digit phone number.";
+	if (trimmed.startsWith("+")) {
+		// International: require the + plus at least 7 digits (shortest valid numbers)
+		const digits = trimmed.slice(1).replace(/\D/g, "");
+		if (digits.length < 7) {
+			return "Enter a valid international phone number (e.g. +44 7911 123456).";
+		}
+		return "";
+	}
+
+	// No country code: must be 10 digits or 11 digits starting with 1
+	const digits = trimmed.replace(/\D/g, "");
+	const isValid =
+		digits.length === 10 ||
+		(digits.length === 11 && digits.startsWith("1"));
+
+	if (!isValid) {
+		return "Enter a valid phone number (e.g. 202-555-1234 or +44 7911 123456).";
 	}
 
 	return "";

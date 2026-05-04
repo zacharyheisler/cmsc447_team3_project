@@ -59,6 +59,9 @@ model User {
 
   active Boolean @default(true)
 
+  // Hashed refresh token; null when logged out.
+  refreshToken String? @map("refresh_token") @db.VarChar(255)
+
   // Optional one-to-one role extensions.
   agent Agent?
   admin Admin? @relation("AdminUser")
@@ -79,7 +82,7 @@ model Company {
   // Organizational grouping for users.
 
   companyId  Int      @id @default(autoincrement()) @map("company_id") @db.Integer
-  name       String   @db.VarChar(120)
+  name       String   @unique @db.VarChar(120)
   dateJoined DateTime @default(now()) @map("date_joined") @db.Timestamp(0)
 
   // One company can have many users.
