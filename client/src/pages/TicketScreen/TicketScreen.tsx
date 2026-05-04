@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import "./TicketScreen.css";
 import { MOCK_AGENTS, MOCK_TICKETS } from "../../demo/mockTickets";
 import type { Agent, Ticket, TicketStatus, TicketType } from "../../types/types";
+import { parseJwtPayload } from "../../utils/api";
 
 // available ticket types with human-readable labels
 const ticketTypes: Array<{ value: TicketType; label: string }> = [
@@ -49,11 +50,22 @@ export default function TicketScreen() {
   const { ticketId } = useParams();
   const navigate = useNavigate();
 
-  const [searchParams] = useSearchParams();
+ // const [searchParams] = useSearchParams();
 
-  const viewerUserId = searchParams.get("userId");
-  const viewerAgentId = searchParams.get("agentId");
+  // const viewerUserId = searchParams.get("userId");
+  // const viewerAgentId = searchParams.get("agentId");
+  const token = sessionStorage.getItem("ACCESS_TOKEN");
 
+  const user = token
+    ? parseJwtPayload<{ sub: number; username: string; role: string }>(token)
+    : null;
+
+  const viewerUserId = user?.sub;
+  const viewerRole = user?.role;
+
+  
+
+  
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true); // Track loading state
   //for demo, get the ticket 1 or 2
@@ -123,6 +135,8 @@ export default function TicketScreen() {
         setStatus(data.status);
         setDescription(data.description);
         setStatusHistory(data.statusHistory || []);
+        setAssignedToName(data?.assignedTo?.user?.username ?? "Unassigned");
+
       })
       .catch((err) => {
         console.error("Fetch error:", err);
@@ -134,7 +148,39 @@ export default function TicketScreen() {
 
   }, [ticketId]);
    
+   const canViewTicket = () => {
+    if (!ticket || !user) return false;
+
+    const ticketData = ticket as any;
+
+    const isCreator = viewerUserId === ticketData.createdById;
+
+    const isAssignedAgent =
+      viewerRole === "agent" && viewerUserId === ticketData.assignedToId;
+
+    return isCreator || isAssignedAgent;
+  };
+   if (loading) return <p>Loading Ticket #{ticketId}...</p>;
+
+  if (!ticket) return <p>Ticket not found.</p>;
+
+  if (!canViewTicket()) {
+    return (
+      <div className="ticket-screen">
+        <button className="button" onClick={() => navigate(-1)}>
+          Go Back
+        </button>
+        <p style={{ color: "red", marginTop: "20px" }}>
+          Access Denied: You do not have permission to view this ticket.
+        </p>
+      </div>
+    );
+  }
+
+  /*
+  // fetch viewer info
   useEffect(() => {
+
     if (viewerAgentId) {
       // fetch agent to get the user id, then their username
       fetch(`http://localhost:3000/agents/${viewerAgentId}`)
@@ -169,14 +215,26 @@ export default function TicketScreen() {
   //  check if ticket exists 
   if (!ticket) return <p>Ticket #{ticketId} was not found in the database.</p>;
 
-  // Helper: find the backing mock ticket (if any) so edits persist across navigation.
+  const hasPermission = canViewTicket();
+  if (!hasPermission) {
+    return (
+      <div className="ticket-screen">
+        <button className="button" onClick={() => navigate(-1)}>Go Back</button>
+        <p style={{ color: 'red', marginTop: '20px' }}>
+          <strong>Access Denied:</strong> You do not have permission to view this ticket.
+        </p>
+      </div>
+    );
+  }
+
+  //find the  mock ticket 
   const getMockTicket = () =>
     exampleTickets.find((t) => t.ticketId === Number(ticketId));
 
   //see who is viewing the ticket
   // should have userId or agentId in the url 
 
-
+  */
   //temporary send message function for screen functionality
   //real message will also get sent to database as 
   const sendMessage = () => {
@@ -191,11 +249,12 @@ export default function TicketScreen() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         content: newMessage,
-        userId: viewerUserId ? Number(viewerUserId) : null,
-        agentId: viewerAgentId ? Number(viewerAgentId) : null,
-      }), // replace 1 with real logged-in user id
+        // userId: viewerUserId ? Number(viewerUserId) : null,
+        // agentId: viewerAgentId ? Number(viewerAgentId) : null,
+      }), 
     });
 
+    /*
     let nextId = 1;
     // make a temporary auto increment messageID for the screen demo
     if (messages.length > 0) {
@@ -210,6 +269,7 @@ export default function TicketScreen() {
       sentAt: new Date().toLocaleDateString(),
     };
 
+
     // Persist to mock data so it survives navigation
     const mockTicket = getMockTicket();
     if (mockTicket) {
@@ -217,70 +277,57 @@ export default function TicketScreen() {
       mockTicket.updatedAt = new Date().toISOString();
     }
 
+    */
+
     // add the message to the current messages  
-    setMessages([...messages, message]);
-    //clear new message
+     setMessages([
+      ...messages,
+      {
+        messageId: messages.length + 1,
+        content: newMessage,
+        sender: viewerRole === "agent" ? "agent" : "user",
+        sentAt: new Date().toISOString(),
+      },
+    ]);
+
     setNewMessage("");
-  }
-
-   const confirmStatusChange = async () => {
-    const mockTicket = getMockTicket();
-
-    // Build a history entry (used for both mock and fallback cases)
-    const nextHistoryId =
-      statusHistory.length > 0
-        ? (statusHistory[statusHistory.length - 1].id ?? statusHistory.length) + 1
-        : 1;
-    const newHistoryEntry = {
-      id: nextHistoryId,
-      TicketStatusHistoryId: nextHistoryId,
-      oldStatus: status,
-      newStatus: tempStatus,
-      changedBy: viewerUsername || (viewerAgentId ? `Agent #${viewerAgentId}` : `User #${viewerUserId}`),
-      statusChangeUser: { username: viewerUsername || "You" },
-      changedAt: new Date().toLocaleString(),
-    };
-
-    if (mockTicket) {
-      // Persist to mock data so it survives navigation
-      mockTicket.status = tempStatus as TicketStatus;
-      mockTicket.statusHistory = [...(mockTicket.statusHistory || []), newHistoryEntry];
-      mockTicket.updatedAt = new Date().toISOString();
-
-      setStatus(tempStatus);
-      setStatusHistory(mockTicket.statusHistory);
-      setEditingStatus(false);
-      return;
-    }
-
-    try {
-      await fetch(`http://localhost:3000/tickets/${ticketId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          status: tempStatus,
-          oldStatus: status,
-          // TicketStatusHistory.statusChangeUserId links to User.userId
-          // If viewer is an agent, we still need their userId not agentId
-          statusChangeUserId: Number(viewerUserId ?? viewerAgentId),
-        }),
-      });
-
-      // Re-fetch status history so "changedBy" comes from DB with real usernames
-      const res = await fetch(`http://localhost:3000/tickets/${ticketId}`);
-      const updated = await res.json();
-      setStatusHistory(updated.statusHistory || []);
-    } catch (err) {
-      console.error("Status update failed:", err);
-      setStatusHistory((prev) => [...prev, newHistoryEntry]);
-    }
-
-    setStatus(tempStatus);
-    setEditingStatus(false);
   };
 
-  
+ const confirmStatusChange = async () => {
+  try {
+    await fetch(`http://localhost:3000/tickets/${ticketId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        status: tempStatus,
+        oldStatus: status,
+        statusChangeUserId: viewerUserId,
+      }),
+    });
 
+    const res = await fetch(`http://localhost:3000/tickets/${ticketId}`);
+    const updated = await res.json();
+
+    setStatus(updated.status);
+    setStatusHistory(updated.statusHistory || []);
+  } catch (err) {
+    console.error("Status update failed:", err);
+  }
+
+  setEditingStatus(false);
+};
+
+  const formatTime = (timestamp: string)=> {
+      const date = new Date(timestamp);
+      return date.toLocaleString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    };
+  
   
   return (
     <div className="ticket-screen">
@@ -333,19 +380,11 @@ export default function TicketScreen() {
                   <button
                     className="button"
                     onClick={() => {
-                      //set the selected type as new type, disable editing
-                      const mockTicket = getMockTicket();
-                      if (mockTicket) {
-                        mockTicket.type = tempType as Ticket["type"];
-                        mockTicket.updatedAt = new Date().toISOString();
-                      } else {
-                        fetch(`http://localhost:3000/tickets/${ticketId}`, {
-                          method: 'PATCH',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ type: tempType }),
-                        });
-                      }
-
+                      fetch(`http://localhost:3000/tickets/${ticketId}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ type: tempType }),
+                      });
                       setType(tempType);
                       setEditingType(false);
                     }}
@@ -452,17 +491,11 @@ export default function TicketScreen() {
                 <button
                   className="button"
                   onClick={() => {
-                    const mockTicket = getMockTicket();
-                    if (mockTicket) {
-                      mockTicket.description = tempDescription;
-                      mockTicket.updatedAt = new Date().toISOString();
-                    } else {
-                      fetch(`http://localhost:3000/tickets/${ticketId}`, {
-                        method: 'PATCH',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ description: tempDescription }),
-                      });
-                    }
+                    fetch(`http://localhost:3000/tickets/${ticketId}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ description: tempDescription }),
+                    });
                     setDescription(tempDescription);
                     setEditingDescription(false);
                   }}
@@ -495,7 +528,7 @@ export default function TicketScreen() {
               <ul>
                 {statusHistory.map((h) => (
                   <li key={h.TicketStatusHistoryId}>
-                    {h.changedAt}: {STATUS_LABEL[h.oldStatus as TicketStatus] ?? h.oldStatus} → {STATUS_LABEL[h.newStatus as TicketStatus] ?? h.newStatus} (by {h.statusChangeUser?.username ?? "Unknown"})
+                    {formatTime(h.changedAt)}: {STATUS_LABEL[h.oldStatus as TicketStatus] ?? h.oldStatus} → {STATUS_LABEL[h.newStatus as TicketStatus] ?? h.newStatus} (by {h.statusChangeUser?.username ?? "Unknown"})
                   </li>
                 ))}
               </ul>
@@ -517,7 +550,7 @@ export default function TicketScreen() {
                   <div key={msg.messageId} className={`message ${sender}`}>
                     <span className="sender">{sender}:</span>
                     <span className="content">{msg.content}</span>
-                    <span className="timestamp">{msg.sentAt}</span>
+                    <span className="timestamp">{formatTime(msg.sentAt)}</span>
                   </div>
                 );
               })

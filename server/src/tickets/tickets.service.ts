@@ -74,7 +74,7 @@ async getTicketById(id: number) {
     },
   });
 }
-  async updateTicket(ticketId: number, body: {
+async updateTicket(ticketId: number, body: {
   status?: any;
   type?: any;
   description?: any;
@@ -82,23 +82,25 @@ async getTicketById(id: number) {
   oldStatus?: any;
   statusChangeUserId?: number;
 }) {
+  const dataToUpdate: any = {};
+
+  if (body.status !== undefined) dataToUpdate.status = body.status;
+  if (body.type !== undefined) dataToUpdate.type = body.type;
+  if (body.description !== undefined) dataToUpdate.description = body.description;
+  if (body.assignedToId !== undefined) dataToUpdate.assignedToId = body.assignedToId;
+
   const updated = await this.prisma.ticket.update({
     where: { ticketId },
-    data: {
-      ...(body.status && { status: body.status }),
-      ...(body.assignedToId !== undefined && { assignedToId: body.assignedToId }),
-      ...(body.type && { type: body.type }),
-      ...(body.description && { description: body.description }),
-    },
+    data: dataToUpdate,
   });
 
-  if (body.status && body.oldStatus && body.statusChangeUserId) {
+  if (body.status && body.oldStatus) {
     await this.prisma.ticketStatusHistory.create({
       data: {
         ticketId,
         oldStatus: body.oldStatus,
         newStatus: body.status,
-        statusChangeUserId: body.statusChangeUserId,
+        statusChangeUserId: body.statusChangeUserId ?? null,
       },
     });
   }
