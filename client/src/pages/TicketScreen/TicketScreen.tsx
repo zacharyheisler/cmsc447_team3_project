@@ -86,7 +86,7 @@ export default function TicketScreen() {
   useEffect(() => {
 
     // Comment this block out if you want to use tickets from backend not demo
-    // /*
+     /*
   
      const mockTicket = exampleTickets.find(
       (t) => t.ticketId === Number(ticketId)
@@ -108,7 +108,7 @@ export default function TicketScreen() {
   }
 
   // comment out block ends here
-  // */
+   */
 
     setLoading(true);
     fetch(`http://localhost:3000/tickets/${ticketId}`)
