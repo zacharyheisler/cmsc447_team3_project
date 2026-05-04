@@ -1,8 +1,9 @@
 import { useState, useEffect, type ChangeEvent } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import TextField from "../components/Textfield";
-import logo from '../assets/ag_associates_logo.png'; 
+import logo from '../assets/ag_associates_logo.png';
 import { MdErrorOutline, MdClose, MdCheckCircle } from "react-icons/md";
+import { apiFetch, parseJwtPayload } from "../utils/api";
 
 export default function LoginPage() {
 	const navigate = useNavigate();
@@ -11,6 +12,7 @@ export default function LoginPage() {
 	const [password, setPassword] = useState("");
 	const [loginError, setLoginError] = useState("");
 	const [showRegisteredToast, setShowRegisteredToast] = useState(false);
+	const [isLoading, setIsLoading] = useState(false);
 
 	useEffect(() => {
 		const state = location.state as { justRegistered?: boolean } | null;
@@ -22,32 +24,31 @@ export default function LoginPage() {
 	}, [location.state]);
 	const isLoginButtonDisabled = !usernameOrEmail.trim() || !password.trim();
 
-	// Mock submit function (just for the demo)
-	const handleSubmit = (event: any) => {
+	const handleSubmit = async (event: React.FormEvent) => {
 		event.preventDefault();
+		setIsLoading(true);
+		setLoginError("");
 
-		const identity = usernameOrEmail.trim().toLowerCase();
-		const enteredPassword = password.trim();
+		try {
+			const data = await apiFetch<{ accessToken: string; refreshToken: string }>("/auth/login", {
+				method: "POST",
+				body: JSON.stringify({
+					emailOrUsername: usernameOrEmail.trim(),
+					password,
+				}),
+			});
 
-		if ((identity === "admin" || identity === "admin@a-gassociates.com") && enteredPassword === "Admin12345") {
+			const payload = parseJwtPayload<{ sub: number; username: string; role: string }>(data.accessToken);
+			sessionStorage.setItem("USER_ROLE", payload.role);
+			sessionStorage.setItem("USER_ID", String(payload.sub));
+			sessionStorage.setItem("ACCESS_TOKEN", data.accessToken);
+			sessionStorage.setItem("REFRESH_TOKEN", data.refreshToken);
+
 			navigate("/dashboard");
-			sessionStorage.setItem("USER_ROLE", "admin");
-			return;
+		} catch (err) {
+			setLoginError(err instanceof Error ? err.message : "Login failed. Please try again.");
+			setIsLoading(false);
 		}
-
-		if ((identity === "user" || identity === "user@a-gassociates.com") && enteredPassword === "User12345") {
-			navigate("/dashboard");
-			sessionStorage.setItem("USER_ROLE", "user");
-			return;
-		}
-
-		if ((identity === "agent" || identity === "agent@a-gassociates.com") && enteredPassword === "Agent12345") {
-			navigate("/dashboard");
-			sessionStorage.setItem("USER_ROLE", "agent");
-			return;
-		}
-
-		setLoginError("Invalid username/email or password.");
 	};
 
 	// handle username/email textfield ChangeEvent
@@ -125,9 +126,9 @@ export default function LoginPage() {
 				<button 
 					className="textbutton" 
 					type="submit" 
-					disabled={isLoginButtonDisabled}
+					disabled={isLoginButtonDisabled || isLoading}
 				>
-					Sign in
+					{isLoading ? "Signing in…" : "Sign in"}
 				</button>
 
 				<div className="flex bg-(--border-default) h-px mb-2 mt-2"></div>

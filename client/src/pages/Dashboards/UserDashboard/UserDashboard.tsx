@@ -200,6 +200,8 @@ export default function UserDashboard() {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       assignedAgentId: null,
+      customer: 'User',
+      priority: 'Medium',
       messages: [],
       statusHistory: [],
     };
@@ -316,7 +318,7 @@ export default function UserDashboard() {
               <button
                 type="button"
                 onClick={() => setIsCreateModalOpen(true)}
-                className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm text-white transition hover:bg-indigo-500"
+                className="inline-flex items-center gap-2 rounded-lg bg-(--primary-button) px-3 py-2 text-sm text-white transition hover:brightness-90"
               >
                 <FaPlus size={12} />
                 New Ticket

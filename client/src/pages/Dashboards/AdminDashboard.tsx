@@ -1,6 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { MOCK_AGENTS, MOCK_TICKETS } from "../../demo/mockTickets";
+import { STATUS_LABELS, TYPE_LABELS } from "../../config/dashboardConfig";
 import type { Agent, Ticket } from "../../types/types";
 
 const initialTickets: Ticket[] = MOCK_TICKETS;
@@ -116,7 +117,7 @@ export default function AdminDashboard() {
                           #{ticket.ticketId}
                         </span>
                         <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                          {ticket.status}
+                          {STATUS_LABELS[ticket.status] ?? ticket.status}
                         </span>
                         <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700">
                           {ticket.priority}
@@ -130,7 +131,7 @@ export default function AdminDashboard() {
                           <span className="font-medium">Customer:</span> {ticket.customer}
                         </p>
                         <p>
-                          <span className="font-medium">Type:</span> {ticket.type}
+                          <span className="font-medium">Type:</span> {TYPE_LABELS[ticket.type] ?? ticket.type}
                         </p>
                         <p>
                           <span className="font-medium">Assigned Agent:</span>{" "}
