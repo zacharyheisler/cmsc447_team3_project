@@ -1,9 +1,24 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma.service';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class AdminService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private async ensureNotLastAdmin(userId: number) {
+    const admin = await this.prisma.admin.findUnique({
+        where: { userId },
+    });
+
+    if (!admin) return;
+
+    const adminCount = await this.prisma.admin.count();
+
+    if (adminCount <= 1) {
+        throw new ForbiddenException('Cannot modify the last remaining admin');
+    }
+    }
 
   async getUsers() {
     const users = await this.prisma.user.findMany({
@@ -78,6 +93,32 @@ export class AdminService {
     };
   }
 
+  async updateUser(userId: number, dto: UpdateUserDto) {
+    const user = await this.prisma.user.findUnique({
+        where: { userId },
+    });
+
+    if (!user) throw new NotFoundException(`User ${userId} not found`);
+
+    if (dto.active === false) {
+        await this.ensureNotLastAdmin(userId);
+    }
+
+    return this.prisma.user.update({
+        where: { userId },
+        data: dto,
+        select: {
+        userId: true,
+        username: true,
+        email: true,
+        phoneNumber: true,
+        active: true,
+        companyId: true,
+        verifiedByAdminId: true,
+        },
+    });
+    }
+
   async approveUser(userId: number, adminUserId: number) {
     const admin = await this.prisma.admin.findUnique({
       where: { userId: adminUserId },
@@ -106,26 +147,38 @@ export class AdminService {
     });
   }
 
-  async setUserActive(userId: number, active: boolean) {
+  async setUserActive(userId: number, active: boolean, actorUserId?: number) {
     const user = await this.prisma.user.findUnique({
-      where: { userId },
+        where: { userId },
     });
 
     if (!user) throw new NotFoundException(`User ${userId} not found`);
 
+    if (!active) {
+        await this.ensureNotLastAdmin(userId);
+
+        if (actorUserId === userId) {
+        throw new ForbiddenException('Admins cannot deactivate their own account');
+        }
+    }
+
     return this.prisma.user.update({
-      where: { userId },
-      data: { active },
-      select: {
+        where: { userId },
+        data: { active },
+        select: {
         userId: true,
         username: true,
         email: true,
         active: true,
-      },
+        },
     });
-  }
+    }
 
-  async updateUserRole(userId: number, role: 'user' | 'agent' | 'admin') {
+  async updateUserRole(
+  userId: number,
+  role: 'user' | 'agent' | 'admin',
+  actorUserId?: number,
+) {
   const user = await this.prisma.user.findUnique({
     where: { userId },
     include: {
@@ -134,7 +187,16 @@ export class AdminService {
     },
   });
 
-  if (!user) throw new NotFoundException(`User ${userId} not found`);
+  if (!user) {
+    throw new NotFoundException(`User ${userId} not found`);
+    }
+  if (user.admin && role !== 'admin') {
+    await this.ensureNotLastAdmin(userId);
+
+    if (actorUserId === userId) {
+        throw new ForbiddenException('Admins cannot demote their own account');
+    }
+    }
 
   return this.prisma.$transaction(async (tx) => {
     if (user.agent) {
@@ -351,6 +413,55 @@ async getDashboard() {
       unassigned: unassignedTickets,
     },
   };
+}
+
+async deleteUser(userId: number, actorUserId: number) {
+  const user = await this.prisma.user.findUnique({
+    where: { userId },
+    include: {
+      admin: true,
+      agent: true,
+      createdTickets: true,
+      sentMessages: true,
+      statusChanges: true,
+    },
+  });
+
+    if (!user) {
+        throw new NotFoundException(`User ${userId} not found`);
+    }
+  await this.ensureNotLastAdmin(userId);
+
+  if (actorUserId === userId) {
+    throw new ForbiddenException('Admins cannot delete their own account');
+  }
+
+  const hasAuditHistory =
+    user.createdTickets.length > 0 ||
+    user.sentMessages.length > 0 ||
+    user.statusChanges.length > 0;
+
+  if (hasAuditHistory) {
+    return this.prisma.user.update({
+      where: { userId },
+      data: { active: false },
+      select: {
+        userId: true,
+        username: true,
+        email: true,
+        active: true,
+      },
+    });
+  }
+
+  return this.prisma.user.delete({
+    where: { userId },
+    select: {
+      userId: true,
+      username: true,
+      email: true,
+    },
+  });
 }
 
 }
