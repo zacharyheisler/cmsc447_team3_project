@@ -94,13 +94,13 @@ async updateTicket(ticketId: number, body: {
     data: dataToUpdate,
   });
 
-  if (body.status && body.oldStatus) {
+  if (body.status && body.oldStatus && body.statusChangeUserId !== undefined) {
     await this.prisma.ticketStatusHistory.create({
       data: {
         ticketId,
         oldStatus: body.oldStatus,
         newStatus: body.status,
-        statusChangeUserId: body.statusChangeUserId ?? null,
+        statusChangeUserId: body.statusChangeUserId,
       },
     });
   }
