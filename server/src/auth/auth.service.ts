@@ -63,10 +63,13 @@ export class AuthService {
   // ── public endpoints ─────────────────────────────────────────────────
 
   async register(dto: RegisterDto) {
+    const username = dto.username.trim().toLowerCase();
+    const email = dto.email.trim().toLowerCase();
+
     // Check each unique field individually so the frontend can show field-specific errors
     const [byUsername, byEmail, byPhone] = await Promise.all([
-      this.prisma.user.findUnique({ where: { username: dto.username } }),
-      this.prisma.user.findUnique({ where: { email: dto.email } }),
+      this.prisma.user.findUnique({ where: { username } }),
+      this.prisma.user.findUnique({ where: { email } }),
       this.prisma.user.findUnique({ where: { phoneNumber: dto.phoneNumber } }),
     ]);
     if (byUsername) throw new ConflictException('Username already exists');
@@ -90,8 +93,8 @@ export class AuthService {
     try {
       const user = await this.prisma.user.create({
         data: {
-          username: dto.username,
-          email: dto.email,
+          username,
+          email,
           phoneNumber: dto.phoneNumber,
           password: hashedPassword,
           companyId: resolvedCompanyId,
@@ -117,11 +120,15 @@ export class AuthService {
 
   async login(dto: LoginDto) {
     const { emailOrUsername, password } = dto;
+    const normalized = emailOrUsername.trim().toLowerCase();
 
-    // Accept either an email address or a username
+    // Accept either an email address or a username (case-insensitive)
     const user = await this.prisma.user.findFirst({
       where: {
-        OR: [{ email: emailOrUsername }, { username: emailOrUsername }],
+        OR: [
+          { email: { equals: normalized, mode: 'insensitive' } },
+          { username: { equals: normalized, mode: 'insensitive' } },
+        ],
       },
     });
     if (!user) throw new UnauthorizedException('Invalid credentials');

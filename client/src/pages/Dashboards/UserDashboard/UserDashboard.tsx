@@ -5,7 +5,7 @@ import CreateTicketModal from '../../../components/CreateTicketModal';
 import TicketTable from '../../../components/TicketTable';
 import TicketToolbar from '../../../components/TicketToolbar';
 import { STATUS_SUMMARY_META } from '../../../config/dashboardConfig';
-import { MOCK_TICKETS } from '../../../demo/mockTickets';
+import { apiFetch } from '../../../utils/api';
 import type { NewTicketInput, Ticket, TicketFilters, TicketStatus } from '../../../types/types';
 import './UserDashboard.css';
 
@@ -57,10 +57,6 @@ function matchesAnySelectedTimeRange(
   return timeRanges.some((range) => shouldIncludeDate(dateIso, range));
 }
 
-function simulateDelay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 export default function UserDashboard() {
   const navigate = useNavigate();
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -86,19 +82,30 @@ export default function UserDashboard() {
     globalThis.setTimeout(dismissToast, 5000, id);
   };
 
-  const loadTickets = async (withFailureChance = false) => {
+  const loadTickets = async () => {
     setLoadError(null);
     setIsLoading(true);
 
     try {
-      await simulateDelay(700);
-      if (withFailureChance && Math.random() < 0.15) {
-        throw new Error('Failed to refresh tickets');
-      }
-      // Clone so local state doesn't share a reference with the mock array.
-      // Otherwise mutating MOCK_TICKETS later would cause duplicated entries
-      // when combined with functional setTickets updates.
-      setTickets([...MOCK_TICKETS]);
+      const userId = sessionStorage.getItem('USER_ID');
+      if (!userId) throw new Error('Not authenticated');
+
+      const data = await apiFetch<any[]>(`/tickets?userId=${userId}`);
+
+      const mapped: Ticket[] = data.map((t) => ({
+        ticketId: t.ticketId,
+        title: t.description,
+        description: t.description,
+        type: t.type,
+        status: t.status,
+        createdAt: t.createdAt,
+        updatedAt: t.createdAt,
+        assignedAgentId: t.assignedToId ?? null,
+        messages: t.messages ?? [],
+        statusHistory: t.statusHistory ?? [],
+      }));
+
+      setTickets(mapped);
       setLastUpdated(new Date());
     } catch {
       setLoadError('Failed to load your tickets. Please try again.');
@@ -108,7 +115,7 @@ export default function UserDashboard() {
   };
 
   useEffect(() => {
-    void loadTickets(false);
+    void loadTickets();
   }, []);
 
   const summaryCounts = useMemo(() => {
@@ -179,50 +186,39 @@ export default function UserDashboard() {
   };
 
   const handleCreateTicket = async (payload: NewTicketInput) => {
-    await simulateDelay(500);
-    if (payload.title.length < 5 || payload.description.length < 15) {
-      throw new Error('Validation failed');
-    }
+    const userId = sessionStorage.getItem('USER_ID');
+    if (!userId) throw new Error('Not authenticated');
 
-    // Derive the next id from the shared mock array (the source of truth),
-    // not from local state, to avoid collisions if state is stale.
-    const allIds = [
-      ...MOCK_TICKETS.map((t) => t.ticketId),
-      ...tickets.map((t) => t.ticketId),
-    ];
-    const nextId = allIds.length > 0 ? Math.max(...allIds) + 1 : 1;
-    const nextTicket: Ticket = {
-      ticketId: nextId,
-      title: payload.title,
-      description: payload.description,
-      type: payload.type,
-      status: 'OPEN',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      assignedAgentId: null,
-      customer: 'User',
-      priority: 'Medium',
+    const created = await apiFetch<any>('/tickets', {
+      method: 'POST',
+      body: JSON.stringify({
+        type: payload.type,
+        description: payload.description,
+        createdById: Number(userId),
+      }),
+    });
+
+    const newTicket: Ticket = {
+      ticketId: created.ticketId,
+      title: created.description,
+      description: created.description,
+      type: created.type,
+      status: created.status,
+      createdAt: created.createdAt,
+      updatedAt: created.createdAt,
+      assignedAgentId: created.assignedToId ?? null,
       messages: [],
       statusHistory: [],
     };
 
-    // Persist to the shared mock tickets array so the new ticket is
-    // viewable on the TicketScreen and other dashboards.
-    MOCK_TICKETS.unshift(nextTicket);
-
-    // Use a de-duplicating updater in case local state already shares a
-    // reference with MOCK_TICKETS (or the ticket was already inserted).
-    setTickets((prev) => {
-      const filtered = prev.filter((t) => t.ticketId !== nextTicket.ticketId);
-      return [nextTicket, ...filtered];
-    });
+    setTickets((prev) => [newTicket, ...prev]);
     setCurrentPage(1);
-    addToast({ variant: 'success', message: `Ticket #${nextTicket.ticketId} created successfully.` });
+    addToast({ variant: 'success', message: `Ticket #${newTicket.ticketId} created successfully.` });
   };
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
-    await loadTickets(true);
+    await loadTickets();
     setIsRefreshing(false);
   };
 
@@ -295,7 +291,7 @@ export default function UserDashboard() {
             <p className="text-sm text-rose-700">{loadError}</p>
             <button
               type="button"
-              onClick={() => void loadTickets(false)}
+              onClick={() => void loadTickets()}
               className="mt-3 rounded-lg bg-white px-4 py-2 text-sm text-rose-700 transition hover:bg-rose-100"
             >
               Retry
