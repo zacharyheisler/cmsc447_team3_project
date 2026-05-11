@@ -1,0 +1,356 @@
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma.service';
+
+@Injectable()
+export class AdminService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async getUsers() {
+    const users = await this.prisma.user.findMany({
+      select: {
+        userId: true,
+        username: true,
+        email: true,
+        phoneNumber: true,
+        accountCreated: true,
+        active: true,
+        verifiedByAdminId: true,
+        company: {
+          select: {
+            companyId: true,
+            name: true,
+          },
+        },
+        agent: {
+          select: {
+            agentId: true,
+          },
+        },
+        admin: {
+          select: {
+            adminId: true,
+          },
+        },
+      },
+      orderBy: {
+        userId: 'asc',
+      },
+    });
+
+    return users.map((user) => ({
+      ...user,
+      role: user.admin ? 'admin' : user.agent ? 'agent' : 'user',
+      isApproved: user.verifiedByAdminId !== null,
+    }));
+  }
+
+  async getUser(userId: number) {
+    const user = await this.prisma.user.findUnique({
+      where: { userId },
+      select: {
+        userId: true,
+        username: true,
+        email: true,
+        phoneNumber: true,
+        accountCreated: true,
+        active: true,
+        verifiedByAdminId: true,
+        company: {
+          select: {
+            companyId: true,
+            name: true,
+          },
+        },
+        agent: true,
+        admin: true,
+        createdTickets: true,
+        sentMessages: true,
+        statusChanges: true,
+      },
+    });
+
+    if (!user) throw new NotFoundException(`User ${userId} not found`);
+
+    return {
+      ...user,
+      role: user.admin ? 'admin' : user.agent ? 'agent' : 'user',
+      isApproved: user.verifiedByAdminId !== null,
+    };
+  }
+
+  async approveUser(userId: number, adminUserId: number) {
+    const admin = await this.prisma.admin.findUnique({
+      where: { userId: adminUserId },
+    });
+
+    if (!admin) throw new ForbiddenException('Admin access required');
+
+    const user = await this.prisma.user.findUnique({
+      where: { userId },
+    });
+
+    if (!user) throw new NotFoundException(`User ${userId} not found`);
+
+    return this.prisma.user.update({
+      where: { userId },
+      data: {
+        verifiedByAdminId: admin.adminId,
+      },
+      select: {
+        userId: true,
+        username: true,
+        email: true,
+        active: true,
+        verifiedByAdminId: true,
+      },
+    });
+  }
+
+  async setUserActive(userId: number, active: boolean) {
+    const user = await this.prisma.user.findUnique({
+      where: { userId },
+    });
+
+    if (!user) throw new NotFoundException(`User ${userId} not found`);
+
+    return this.prisma.user.update({
+      where: { userId },
+      data: { active },
+      select: {
+        userId: true,
+        username: true,
+        email: true,
+        active: true,
+      },
+    });
+  }
+
+  async updateUserRole(userId: number, role: 'user' | 'agent' | 'admin') {
+  const user = await this.prisma.user.findUnique({
+    where: { userId },
+    include: {
+      agent: true,
+      admin: true,
+    },
+  });
+
+  if (!user) throw new NotFoundException(`User ${userId} not found`);
+
+  return this.prisma.$transaction(async (tx) => {
+    if (user.agent) {
+      await tx.agent.delete({
+        where: { userId },
+      });
+    }
+
+    if (user.admin) {
+      await tx.admin.delete({
+        where: { userId },
+      });
+    }
+
+    if (role === 'agent') {
+      await tx.agent.create({
+        data: {
+          userId,
+        },
+      });
+    }
+
+    if (role === 'admin') {
+      await tx.admin.create({
+        data: {
+          userId,
+        },
+      });
+    }
+
+    const updated = await tx.user.findUnique({
+      where: { userId },
+      select: {
+        userId: true,
+        username: true,
+        email: true,
+        active: true,
+        verifiedByAdminId: true,
+        agent: {
+          select: { agentId: true },
+        },
+        admin: {
+          select: { adminId: true },
+        },
+      },
+    });
+
+    return {
+      ...updated,
+      role,
+      isApproved: updated?.verifiedByAdminId !== null,
+    };
+  });
+}
+
+async getTickets() {
+  return this.prisma.ticket.findMany({
+    include: {
+      createdBy: {
+        select: {
+          userId: true,
+          username: true,
+          email: true,
+        },
+      },
+      assignedTo: {
+        include: {
+          user: {
+            select: {
+              userId: true,
+              username: true,
+              email: true,
+            },
+          },
+        },
+      },
+      messages: {
+        orderBy: { sentAt: 'desc' },
+        take: 1,
+      },
+      statusHistory: {
+        orderBy: { changedAt: 'desc' },
+        take: 1,
+      },
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+  });
+}
+
+async assignTicket(ticketId: number, agentId: number) {
+  const ticket = await this.prisma.ticket.findUnique({
+    where: { ticketId },
+  });
+
+  if (!ticket) throw new NotFoundException(`Ticket ${ticketId} not found`);
+
+  const agent = await this.prisma.agent.findUnique({
+    where: { agentId },
+  });
+
+  if (!agent) throw new NotFoundException(`Agent ${agentId} not found`);
+
+  return this.prisma.ticket.update({
+    where: { ticketId },
+    data: { assignedToId: agentId },
+    include: {
+      createdBy: {
+        select: {
+          userId: true,
+          username: true,
+          email: true,
+        },
+      },
+      assignedTo: {
+        include: {
+          user: {
+            select: {
+              userId: true,
+              username: true,
+              email: true,
+            },
+          },
+        },
+      },
+    },
+  });
+}
+
+async updateTicketStatus(
+  ticketId: number,
+  status: 'OPEN' | 'IN_PROGRESS' | 'WAITING_ON_CUSTOMER' | 'RESOLVED' | 'CLOSED',
+  adminUserId: number,
+) {
+  const ticket = await this.prisma.ticket.findUnique({
+    where: { ticketId },
+  });
+
+  if (!ticket) throw new NotFoundException(`Ticket ${ticketId} not found`);
+
+  const admin = await this.prisma.admin.findUnique({
+    where: { userId: adminUserId },
+  });
+
+  if (!admin) throw new ForbiddenException('Admin access required');
+
+  return this.prisma.$transaction(async (tx) => {
+    const updatedTicket = await tx.ticket.update({
+      where: { ticketId },
+      data: { status },
+    });
+
+    if (ticket.status !== status) {
+      await tx.ticketStatusHistory.create({
+        data: {
+          ticketId,
+          oldStatus: ticket.status,
+          newStatus: status,
+          statusChangeUserId: adminUserId,
+        },
+      });
+    }
+
+    return updatedTicket;
+  });
+}
+
+async getDashboard() {
+  const [
+    totalUsers,
+    activeUsers,
+    pendingApprovals,
+    totalAgents,
+    totalAdmins,
+    totalTickets,
+    openTickets,
+    inProgressTickets,
+    resolvedTickets,
+    closedTickets,
+    unassignedTickets,
+  ] = await Promise.all([
+    this.prisma.user.count(),
+    this.prisma.user.count({ where: { active: true } }),
+    this.prisma.user.count({ where: { verifiedByAdminId: null } }),
+    this.prisma.agent.count(),
+    this.prisma.admin.count(),
+    this.prisma.ticket.count(),
+    this.prisma.ticket.count({ where: { status: 'OPEN' } }),
+    this.prisma.ticket.count({ where: { status: 'IN_PROGRESS' } }),
+    this.prisma.ticket.count({ where: { status: 'RESOLVED' } }),
+    this.prisma.ticket.count({ where: { status: 'CLOSED' } }),
+    this.prisma.ticket.count({ where: { assignedToId: null } }),
+  ]);
+
+  return {
+    users: {
+      total: totalUsers,
+      active: activeUsers,
+      inactive: totalUsers - activeUsers,
+      pendingApprovals,
+    },
+    roles: {
+      agents: totalAgents,
+      admins: totalAdmins,
+      regularUsers: totalUsers - totalAgents - totalAdmins,
+    },
+    tickets: {
+      total: totalTickets,
+      open: openTickets,
+      inProgress: inProgressTickets,
+      resolved: resolvedTickets,
+      closed: closedTickets,
+      unassigned: unassignedTickets,
+    },
+  };
+}
+
+}
