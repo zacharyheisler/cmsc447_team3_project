@@ -179,64 +179,7 @@ export default function TicketScreen() {
     );
   }
 
-  /*
-  // fetch viewer info
-  useEffect(() => {
 
-    if (viewerAgentId) {
-      // fetch agent to get the user id, then their username
-      fetch(`http://localhost:3000/agents/${viewerAgentId}`)
-        .then((res) => res.json())
-        .then((agent) =>
-          fetch(`http://localhost:3000/users/${agent.userId}`)
-        )
-        .then((res) => res.json())
-        .then((user) => setViewerUsername(user.username))
-        .catch(() => setViewerUsername(`Agent #${viewerAgentId}`));
-    } else if (viewerUserId) {
-      // if a user is viewing, get their nusername
-      fetch(`http://localhost:3000/users/${viewerUserId}`)
-        .then((res) => res.json())
-        .then((user) => setViewerUsername(user.username))
-        .catch(() => setViewerUsername(`User #${viewerUserId}`));
-    }
-  }, [viewerAgentId, viewerUserId]);
-
-   useEffect(() => {
-  const data = ticket as any;
-  if (data?.assignedTo?.user?.username) {
-    setAssignedToName(data.assignedTo.user.username);
-  } else {
-    setAssignedToName("Unassigned");
-  }
-}, [ticket]);
-
-  // check if ticket is being fetched
-  if (loading) return <p>Fetching Ticket #{ticketId} from database...</p>;
-
-  //  check if ticket exists 
-  if (!ticket) return <p>Ticket #{ticketId} was not found in the database.</p>;
-
-  const hasPermission = canViewTicket();
-  if (!hasPermission) {
-    return (
-      <div className="ticket-screen">
-        <button className="button" onClick={() => navigate(-1)}>Go Back</button>
-        <p style={{ color: 'red', marginTop: '20px' }}>
-          <strong>Access Denied:</strong> You do not have permission to view this ticket.
-        </p>
-      </div>
-    );
-  }
-
-  //find the  mock ticket 
-  const getMockTicket = () =>
-    exampleTickets.find((t) => t.ticketId === Number(ticketId));
-
-  //see who is viewing the ticket
-  // should have userId or agentId in the url 
-
-  */
   //temporary send message function for screen functionality
   //real message will also get sent to database as 
   const sendMessage = () => {
@@ -255,31 +198,6 @@ export default function TicketScreen() {
         // agentId: viewerAgentId ? Number(viewerAgentId) : null,
       }),
     });
-
-    /*
-    let nextId = 1;
-    // make a temporary auto increment messageID for the screen demo
-    if (messages.length > 0) {
-      nextId = messages[messages.length - 1].messageId + 1;
-    }
-
-    // for the demo, a user can send a message
-    const message = {
-      messageId: nextId,
-      content: newMessage,
-      sender: viewerAgentId ? "agent" : "user",
-      sentAt: new Date().toLocaleDateString(),
-    };
-
-
-    // Persist to mock data so it survives navigation
-    const mockTicket = getMockTicket();
-    if (mockTicket) {
-      mockTicket.messages = [...(mockTicket.messages || []), message];
-      mockTicket.updatedAt = new Date().toISOString();
-    }
-
-    */
 
     // add the message to the current messages  
     setMessages([
