@@ -4,6 +4,7 @@ import "./TicketScreen.css";
 import { MOCK_AGENTS, MOCK_TICKETS } from "../../demo/mockTickets";
 import type { Agent, Ticket, TicketStatus, TicketType } from "../../types/types";
 import { parseJwtPayload } from "../../utils/api";
+import "./TicketTest.tsx"
 
 // available ticket types with human-readable labels
 const ticketTypes: Array<{ value: TicketType; label: string }> = [
@@ -57,13 +58,17 @@ export default function TicketScreen() {
   const token = sessionStorage.getItem("ACCESS_TOKEN");
 
   const user = token
-    ? parseJwtPayload<{ sub: number; username: string; role: string }>(token)
+    ? parseJwtPayload<{
+      sub: number;
+      username: string;
+      role: "user" | "agent" | "admin";
+      agentId?: number;
+    }>(token)
     : null;
 
   const viewerUserId = user?.sub;
+  const viewerAgentId = user?.agentId ?? null;
   const viewerRole = user?.role;
-
-
 
 
   const [ticket, setTicket] = useState<Ticket | null>(null);
@@ -153,12 +158,19 @@ export default function TicketScreen() {
 
     const ticketData = ticket as any;
 
+    console.log({
+      viewerRole,
+      viewerAgentId,
+      viewerUserId,
+      assignedToId: ticketData.assignedToId,
+      createdById: ticketData.createdById,
+    });
     const isAdmin = viewerRole === "admin";
 
     const isCreator = viewerUserId === ticketData.createdById;
 
     const isAssignedAgent =
-      viewerRole === "agent" && viewerUserId === ticketData.assignedToId;
+      viewerRole === "agent" && Number(viewerAgentId) === Number(ticketData.assignedToId);
 
     return isCreator || isAssignedAgent || isAdmin;
   };
@@ -194,8 +206,11 @@ export default function TicketScreen() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         content: newMessage,
-        // userId: viewerUserId ? Number(viewerUserId) : null,
-        // agentId: viewerAgentId ? Number(viewerAgentId) : null,
+        userId:
+          viewerRole === "user" ? Number(viewerUserId) : null,
+
+        agentId:
+          viewerRole === "agent" ? Number(viewerAgentId) : null,
       }),
     });
 

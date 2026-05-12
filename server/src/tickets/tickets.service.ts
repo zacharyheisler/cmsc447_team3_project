@@ -101,6 +101,7 @@ async updateTicket(ticketId: number, body: {
         oldStatus: body.oldStatus,
         newStatus: body.status,
         statusChangeUserId: body.statusChangeUserId,
+        changedAt: new Date(),
       },
     });
   }
