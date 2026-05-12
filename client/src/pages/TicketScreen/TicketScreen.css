@@ -115,6 +115,11 @@
   text-align: left;
 }
 
+.messages .message.admin {
+  background: #feffdb;
+  text-align: left;
+}
+
 .message .sender {
   font-weight: bold;
   margin-right: 0.5rem;

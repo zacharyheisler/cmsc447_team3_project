@@ -50,7 +50,7 @@ export default function TicketScreen() {
   const { ticketId } = useParams();
   const navigate = useNavigate();
 
- // const [searchParams] = useSearchParams();
+  // const [searchParams] = useSearchParams();
 
   // const viewerUserId = searchParams.get("userId");
   // const viewerAgentId = searchParams.get("agentId");
@@ -63,9 +63,9 @@ export default function TicketScreen() {
   const viewerUserId = user?.sub;
   const viewerRole = user?.role;
 
-  
 
-  
+
+
   const [ticket, setTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState(true); // Track loading state
   //for demo, get the ticket 1 or 2
@@ -94,33 +94,33 @@ export default function TicketScreen() {
   const [viewerUsername, setViewerUsername] = useState<string>("");
   const [assignedToName, setAssignedToName] = useState<string>("Unassigned");
 
-  
+
   useEffect(() => {
 
     // Comment this block out if you want to use tickets from backend not demo
-     /*
-  
-     const mockTicket = exampleTickets.find(
-      (t) => t.ticketId === Number(ticketId)
-    );
+    /*
+ 
+    const mockTicket = exampleTickets.find(
+     (t) => t.ticketId === Number(ticketId)
+   );
 
-    
+   
 
-    // Will use mock tickets for demo screenshots if they are available instead of backend!
-    
-  if (mockTicket) {
-    setTicket(mockTicket);
-    setMessages(mockTicket.messages || []);
-    setType(mockTicket.type);
-    setStatus(mockTicket.status);
-    setDescription(mockTicket.description);
-    setStatusHistory(mockTicket.statusHistory || []);
-    setLoading(false);
-    return;
-  }
+   // Will use mock tickets for demo screenshots if they are available instead of backend!
+   
+ if (mockTicket) {
+   setTicket(mockTicket);
+   setMessages(mockTicket.messages || []);
+   setType(mockTicket.type);
+   setStatus(mockTicket.status);
+   setDescription(mockTicket.description);
+   setStatusHistory(mockTicket.statusHistory || []);
+   setLoading(false);
+   return;
+ }
 
-  // comment out block ends here
-   */
+ // comment out block ends here
+  */
 
     setLoading(true);
     fetch(`http://localhost:3000/tickets/${ticketId}`)
@@ -147,20 +147,22 @@ export default function TicketScreen() {
       });
 
   }, [ticketId]);
-   
-   const canViewTicket = () => {
+
+  const canViewTicket = () => {
     if (!ticket || !user) return false;
 
     const ticketData = ticket as any;
+
+    const isAdmin = viewerRole === "admin";
 
     const isCreator = viewerUserId === ticketData.createdById;
 
     const isAssignedAgent =
       viewerRole === "agent" && viewerUserId === ticketData.assignedToId;
 
-    return isCreator || isAssignedAgent;
+    return isCreator || isAssignedAgent || isAdmin;
   };
-   if (loading) return <p>Loading Ticket #{ticketId}...</p>;
+  if (loading) return <p>Loading Ticket #{ticketId}...</p>;
 
   if (!ticket) return <p>Ticket not found.</p>;
 
@@ -251,7 +253,7 @@ export default function TicketScreen() {
         content: newMessage,
         // userId: viewerUserId ? Number(viewerUserId) : null,
         // agentId: viewerAgentId ? Number(viewerAgentId) : null,
-      }), 
+      }),
     });
 
     /*
@@ -280,12 +282,17 @@ export default function TicketScreen() {
     */
 
     // add the message to the current messages  
-     setMessages([
+    setMessages([
       ...messages,
       {
         messageId: messages.length + 1,
         content: newMessage,
-        sender: viewerRole === "agent" ? "agent" : "user",
+        sender:
+          viewerRole === "admin"
+            ? "admin"
+            : viewerRole === "agent"
+              ? "agent"
+              : "user",
         sentAt: new Date().toISOString(),
       },
     ]);
@@ -293,42 +300,42 @@ export default function TicketScreen() {
     setNewMessage("");
   };
 
- const confirmStatusChange = async () => {
-  try {
-    await fetch(`http://localhost:3000/tickets/${ticketId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        status: tempStatus,
-        oldStatus: status,
-        statusChangeUserId: viewerUserId,
-      }),
-    });
-
-    const res = await fetch(`http://localhost:3000/tickets/${ticketId}`);
-    const updated = await res.json();
-
-    setStatus(updated.status);
-    setStatusHistory(updated.statusHistory || []);
-  } catch (err) {
-    console.error("Status update failed:", err);
-  }
-
-  setEditingStatus(false);
-};
-
-  const formatTime = (timestamp: string)=> {
-      const date = new Date(timestamp);
-      return date.toLocaleString(undefined, {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
+  const confirmStatusChange = async () => {
+    try {
+      await fetch(`http://localhost:3000/tickets/${ticketId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: tempStatus,
+          oldStatus: status,
+          statusChangeUserId: viewerUserId,
+        }),
       });
-    };
-  
-  
+
+      const res = await fetch(`http://localhost:3000/tickets/${ticketId}`);
+      const updated = await res.json();
+
+      setStatus(updated.status);
+      setStatusHistory(updated.statusHistory || []);
+    } catch (err) {
+      console.error("Status update failed:", err);
+    }
+
+    setEditingStatus(false);
+  };
+
+  const formatTime = (timestamp: string) => {
+    const date = new Date(timestamp);
+    return date.toLocaleString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+
   return (
     <div className="ticket-screen">
       {/*Back button*/}
@@ -443,7 +450,7 @@ export default function TicketScreen() {
                     ))}
                   </select>
 
-                   <button className="button" onClick={confirmStatusChange}>Confirm</button>
+                  <button className="button" onClick={confirmStatusChange}>Confirm</button>
 
                   <button
                     className="button"
@@ -516,7 +523,7 @@ export default function TicketScreen() {
           </div>
 
           {/*These can't be changed*/}
-<p><strong>Assigned to:</strong> {assignedToName}</p>
+          <p><strong>Assigned to:</strong> {assignedToName}</p>
           <p><strong>Created At:</strong> {ticket.createdAt}</p>
 
           {/*Ticket status historiy information*/}
@@ -543,8 +550,13 @@ export default function TicketScreen() {
               <p>No messages yet.</p>
             ) : (
               messages.map((msg) => {
-                const sender = msg.sender         // locally created messages
-                  ?? (msg.agentId ? "agent" : "user");  // messages from DB
+                const sender =
+                  msg.sender ??
+                  (msg.adminId
+                    ? "admin"
+                    : msg.agentId
+                      ? "agent"
+                      : "user");  // messages from DB
 
                 return (
                   <div key={msg.messageId} className={`message ${sender}`}>
