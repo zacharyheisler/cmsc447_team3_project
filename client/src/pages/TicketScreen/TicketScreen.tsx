@@ -98,42 +98,28 @@ export default function TicketScreen() {
 
   const [viewerUsername, setViewerUsername] = useState<string>("");
   const [assignedToName, setAssignedToName] = useState<string>("Unassigned");
-
+  const [resolvedAgentId, setResolvedAgentId] = useState<number | null>(null);
 
   useEffect(() => {
-
-    // Comment this block out if you want to use tickets from backend not demo
-    /*
- 
-    const mockTicket = exampleTickets.find(
-     (t) => t.ticketId === Number(ticketId)
-   );
-
-   
-
-   // Will use mock tickets for demo screenshots if they are available instead of backend!
-   
- if (mockTicket) {
-   setTicket(mockTicket);
-   setMessages(mockTicket.messages || []);
-   setType(mockTicket.type);
-   setStatus(mockTicket.status);
-   setDescription(mockTicket.description);
-   setStatusHistory(mockTicket.statusHistory || []);
-   setLoading(false);
-   return;
- }
-
- // comment out block ends here
-  */
-
     setLoading(true);
-    fetch(`http://localhost:3000/tickets/${ticketId}`)
+
+    const ticketFetch = fetch(`http://localhost:3000/tickets/${ticketId}`)
       .then((res) => {
         if (!res.ok) throw new Error("Ticket not found");
         return res.json();
-      })
-      .then((data) => {
+      });
+
+    const agentFetch =
+      viewerRole === "agent" && viewerUserId
+        ? fetch(`http://localhost:3000/tickets/agent-by-user/${viewerUserId}`)
+          .then((res) => res.json())
+          .then((data) => data.agentId ?? null)
+          .catch(() => null)
+        : Promise.resolve(null);
+
+
+    Promise.all([ticketFetch, agentFetch])
+      .then(([data, agentId]) => {
         setTicket(data);
         setMessages(data.messages || []);
         setType(data.type);
@@ -141,7 +127,7 @@ export default function TicketScreen() {
         setDescription(data.description);
         setStatusHistory(data.statusHistory || []);
         setAssignedToName(data?.assignedTo?.user?.username ?? "Unassigned");
-
+        setResolvedAgentId(agentId);
       })
       .catch((err) => {
         console.error("Fetch error:", err);
@@ -150,9 +136,7 @@ export default function TicketScreen() {
       .finally(() => {
         setLoading(false);
       });
-
   }, [ticketId]);
-
   const canViewTicket = () => {
     if (!ticket || !user) return false;
 
@@ -170,7 +154,7 @@ export default function TicketScreen() {
     const isCreator = viewerUserId === ticketData.createdById;
 
     const isAssignedAgent =
-      viewerRole === "agent" && Number(viewerAgentId) === Number(ticketData.assignedToId);
+      viewerRole === "agent" && Number(resolvedAgentId) === Number(ticketData.assignedToId);
 
     return isCreator || isAssignedAgent || isAdmin;
   };
@@ -210,7 +194,7 @@ export default function TicketScreen() {
           viewerRole === "user" ? Number(viewerUserId) : null,
 
         agentId:
-          viewerRole === "agent" ? Number(viewerAgentId) : null,
+          viewerRole === "agent" ? Number(resolvedAgentId) : null,
       }),
     });
 

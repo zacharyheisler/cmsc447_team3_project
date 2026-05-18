@@ -3,12 +3,17 @@ import { TicketsService } from './tickets.service';
 
 @Controller('tickets')
 export class TicketsController {
-  constructor(private readonly ticketsService: TicketsService) {}
+  constructor(private readonly ticketsService: TicketsService) { }
 
   // GET /tickets
   @Get()
   getTickets(@Query('userId') userId?: string, @Query('agentId') agentId?: string) {
     return this.ticketsService.getTickets(Number(userId), Number(agentId));
+  }
+
+  @Get('agent-by-user/:userId')
+  async getAgentByUserId(@Param('userId') userId: string) {
+    return this.ticketsService.getAgentByUserId(Number(userId));
   }
 
   // GET /tickets/:id
@@ -41,6 +46,7 @@ export class TicketsController {
     return this.ticketsService.addMessage(Number(id), body);
   }
 
+
   // GET /tickets/:id/history
   @Get(':id/history')
   getHistory(@Param('id') id: string) {
@@ -54,7 +60,7 @@ export class TicketsController {
   }
 
   @Delete(':id')
-  deleteTicket(@Param('id') id: string){
+  deleteTicket(@Param('id') id: string) {
     return this.ticketsService.deleteTicket(Number(id));
   }
 }

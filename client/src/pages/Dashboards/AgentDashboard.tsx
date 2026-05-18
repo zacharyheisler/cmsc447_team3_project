@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import type { Ticket, TicketStatus } from "../../types/types";
+import { parseJwtPayload } from "../../utils/api";
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
 	OPEN: "Open",
@@ -63,16 +64,23 @@ export default function AgentDashboard() {
 				setIsLoading(true);
 				setLoadError("");
 
-				const agentsResponse = await fetch("http://localhost:3000/agent-dashboard/agents");
-				if (!agentsResponse.ok) throw new Error("Unable to load agents");
+				const token = sessionStorage.getItem("ACCESS_TOKEN");
+				const user = token ? parseJwtPayload<{
+					sub: number;
+					username: string;
+					role: string;
+				}>(token) : null;
 
-				const agents = (await agentsResponse.json()) as AgentRecord[];
-				const agent = agents[0];
-				if (!agent) throw new Error("No agents found in the database");
+				if (!user) throw new Error("Not logged in");
 
-				setAgentName(agent.user?.username ?? "Agent");
+				// Get this agent's record by their userId
+				const agentRes = await fetch(`http://localhost:3000/tickets/agent-by-user/${user.sub}`);
+				if (!agentRes.ok) throw new Error("Unable to load agent");
+				const agentData = await agentRes.json();
 
-				const dashboardResponse = await fetch(`http://localhost:3000/agent-dashboard/${agent.agentId}`);
+				setAgentName(user.username);
+
+				const dashboardResponse = await fetch(`http://localhost:3000/agent-dashboard/${agentData.agentId}`);
 				if (!dashboardResponse.ok) throw new Error("Unable to load agent dashboard");
 
 				const data = (await dashboardResponse.json()) as AgentDashboardData;
