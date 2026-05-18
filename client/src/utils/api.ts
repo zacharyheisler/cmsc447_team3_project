@@ -6,10 +6,13 @@ export const API_BASE = 'http://localhost:3000';
  * so cookies are forwarded.
  */
 export async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
+  const token = sessionStorage.getItem("ACCESS_TOKEN");
+
   const res = await fetch(`${API_BASE}${path}`, {
-    credentials: 'include',
+    credentials: "include",
     headers: {
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options?.headers,
     },
     ...options,
@@ -19,11 +22,10 @@ export async function apiFetch<T>(path: string, options?: RequestInit): Promise<
     const body = await res.json().catch(() => ({})) as { message?: string | string[] };
     const msg = Array.isArray(body.message)
       ? body.message[0]
-      : (body.message ?? `Request failed (${res.status})`);
+      : body.message ?? `Request failed (${res.status})`;
     throw new Error(msg);
   }
 
-  // 204 No Content has no body
   if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }

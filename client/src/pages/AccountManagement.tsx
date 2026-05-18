@@ -1,70 +1,94 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { MOCK_ACCOUNTS, type Account, type AccountRole } from "../demo/mockAccounts";
+import { apiFetch } from "../utils/api";
 
-type Role = AccountRole;
+type Role = "user" | "agent" | "admin";
+
+type Account = {
+  userId: number;
+  username: string;
+  email: string;
+  phoneNumber?: string | null;
+  active: boolean;
+  role: Role;
+  isApproved: boolean;
+  company?: {
+    name?: string;
+  } | null;
+};
 
 export default function AccountManagement() {
-  const [accounts, setAccounts] = useState<Account[]>([...MOCK_ACCOUNTS]);
-  const [newAccount, setNewAccount] = useState({
-    userId: "",
-    name: "",
-    email: "",
-    role: "USER" as Role,
-  });
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  // Persist edits back to the shared mock array so other pages reflect them
-  function persistToMock(updater: (account: Account) => void, id: number) {
-    const target = MOCK_ACCOUNTS.find((a) => a.id === id);
-    if (target) updater(target);
+  async function loadAccounts() {
+    try {
+      setLoading(true);
+      setError("");
+      const users = await apiFetch<Account[]>("/admin/users");
+      setAccounts(users);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load accounts.");
+    } finally {
+      setLoading(false);
+    }
   }
 
-  function handleUserIdChange(id: number, newUserId: string) {
-    persistToMock((a) => { a.userId = newUserId; }, id);
-    setAccounts((prev) =>
-      prev.map((account) =>
-        account.id === id ? { ...account, userId: newUserId } : account
-      )
-    );
+  useEffect(() => {
+    loadAccounts();
+  }, []);
+
+  async function approveUser(userId: number) {
+    try {
+      await apiFetch(`/admin/users/${userId}/approve`, { method: "PATCH" });
+      await loadAccounts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to approve user.");
+    }
   }
 
-  function handleRoleChange(id: number, newRole: Role) {
-    persistToMock((a) => { a.role = newRole; }, id);
-    setAccounts((prev) =>
-      prev.map((account) =>
-        account.id === id ? { ...account, role: newRole } : account
-      )
-    );
+  async function changeRole(userId: number, role: Role) {
+    try {
+      await apiFetch(`/admin/users/${userId}/role`, {
+        method: "PATCH",
+        body: JSON.stringify({ role }),
+      });
+      await loadAccounts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update role.");
+    }
   }
 
-  function toggleVerified(id: number) {
-    persistToMock((a) => { a.verified = !a.verified; }, id);
-    setAccounts((prev) =>
-      prev.map((account) =>
-        account.id === id
-          ? { ...account, verified: !account.verified }
-          : account
-      )
-    );
-  }
-
-  function toggleActive(id: number) {
-    persistToMock((a) => { a.active = !a.active; }, id);
-    setAccounts((prev) =>
-      prev.map((account) =>
-        account.id === id ? { ...account, active: !account.active } : account
-      )
-    );
+  async function toggleActive(userId: number, active: boolean) {
+    try {
+      await apiFetch(`/admin/users/${userId}/${active ? "deactivate" : "activate"}`, {
+        method: "PATCH",
+      });
+      await loadAccounts();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update account status.");
+    }
   }
 
   const stats = useMemo(() => {
     return {
       total: accounts.length,
-      admins: accounts.filter((account) => account.role === "ADMIN").length,
-      agents: accounts.filter((account) => account.role === "AGENT").length,
-      unverified: accounts.filter((account) => !account.verified).length,
+      admins: accounts.filter((account) => account.role === "admin").length,
+      agents: accounts.filter((account) => account.role === "agent").length,
+      unapproved: accounts.filter((account) => !account.isApproved).length,
     };
   }, [accounts]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-100 px-6 py-10 text-slate-800">
+        <div className="mx-auto max-w-7xl">
+          <p className="text-lg font-medium">Loading accounts...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 px-6 py-10 text-slate-800">
@@ -81,10 +105,16 @@ export default function AccountManagement() {
               Account Management
             </h1>
             <p className="mt-2 text-lg text-slate-600">
-              View, create, verify, edit, and deactivate accounts.
+              Approve users, change roles, and activate or deactivate accounts.
             </p>
           </div>
         </header>
+
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
         <section className="mb-10 grid gap-4 md:grid-cols-4">
           <div className="rounded-2xl bg-white p-6 shadow-sm">
@@ -103,8 +133,8 @@ export default function AccountManagement() {
           </div>
 
           <div className="rounded-2xl bg-white p-6 shadow-sm">
-            <p className="text-sm font-medium text-slate-500">Unverified</p>
-            <p className="mt-2 text-3xl font-bold">{stats.unverified}</p>
+            <p className="text-sm font-medium text-slate-500">Unapproved</p>
+            <p className="mt-2 text-3xl font-bold">{stats.unapproved}</p>
           </div>
         </section>
 
@@ -112,29 +142,24 @@ export default function AccountManagement() {
           <div className="mb-6">
             <h2 className="text-2xl font-semibold">All Accounts</h2>
             <p className="text-sm text-slate-500">
-              Edit IDs, verify users, change roles, and deactivate accounts.
+              Manage registered users from the live database.
             </p>
           </div>
 
           <div className="space-y-4">
             {accounts.map((account) => (
               <div
-                key={account.id}
+                key={account.userId}
                 className="rounded-xl border border-slate-200 p-4"
               >
-                <div className="grid gap-4 xl:grid-cols-[1.2fr_1.2fr_1fr_1fr_1fr_auto] xl:items-end">
+                <div className="grid gap-4 xl:grid-cols-[1fr_1fr_1fr_1fr_1fr] xl:items-end">
                   <div>
                     <label className="mb-1 block text-sm font-medium text-slate-700">
                       User ID
                     </label>
-                    <input
-                      type="text"
-                      value={account.userId}
-                      onChange={(e) =>
-                        handleUserIdChange(account.id, e.target.value)
-                      }
-                      className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                    />
+                    <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
+                      {account.userId}
+                    </div>
                   </div>
 
                   <div>
@@ -142,7 +167,7 @@ export default function AccountManagement() {
                       User
                     </label>
                     <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                      <p className="font-medium">{account.name}</p>
+                      <p className="font-medium">{account.username}</p>
                       <p className="text-slate-500">{account.email}</p>
                     </div>
                   </div>
@@ -154,30 +179,31 @@ export default function AccountManagement() {
                     <select
                       value={account.role}
                       onChange={(e) =>
-                        handleRoleChange(account.id, e.target.value as Role)
+                        changeRole(account.userId, e.target.value as Role)
                       }
                       className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
                     >
-                      <option value="USER">USER</option>
-                      <option value="AGENT">AGENT</option>
-                      <option value="ADMIN">ADMIN</option>
+                      <option value="user">user</option>
+                      <option value="agent">agent</option>
+                      <option value="admin">admin</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="mb-1 block text-sm font-medium text-slate-700">
-                      Verification
+                      Approval
                     </label>
                     <button
                       type="button"
-                      onClick={() => toggleVerified(account.id)}
+                      onClick={() => approveUser(account.userId)}
+                      disabled={account.isApproved}
                       className={`w-full rounded-lg px-4 py-2 text-sm font-medium transition ${
-                        account.verified
-                          ? "bg-emerald-100 text-emerald-700 hover:bg-emerald-200"
+                        account.isApproved
+                          ? "bg-emerald-100 text-emerald-700"
                           : "bg-amber-100 text-amber-700 hover:bg-amber-200"
                       }`}
                     >
-                      {account.verified ? "Verified" : "Unverified"}
+                      {account.isApproved ? "Approved" : "Approve"}
                     </button>
                   </div>
 
@@ -187,7 +213,7 @@ export default function AccountManagement() {
                     </label>
                     <button
                       type="button"
-                      onClick={() => toggleActive(account.id)}
+                      onClick={() => toggleActive(account.userId, account.active)}
                       className={`w-full rounded-lg px-4 py-2 text-sm font-medium transition ${
                         account.active
                           ? "bg-red-100 text-red-700 hover:bg-red-200"
@@ -197,20 +223,15 @@ export default function AccountManagement() {
                       {account.active ? "Deactivate" : "Reactivate"}
                     </button>
                   </div>
-
-                  <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm">
-                    <p>
-                      <span className="font-medium">State:</span>{" "}
-                      {account.active ? "Active" : "Inactive"}
-                    </p>
-                    <p>
-                      <span className="font-medium">Verified:</span>{" "}
-                      {account.verified ? "Yes" : "No"}
-                    </p>
-                  </div>
                 </div>
               </div>
             ))}
+
+            {accounts.length === 0 && (
+              <p className="rounded-xl border border-slate-200 p-4 text-sm text-slate-500">
+                No accounts found.
+              </p>
+            )}
           </div>
         </section>
       </div>

@@ -17,13 +17,6 @@ type SummaryCard = {
 	detail: string;
 };
 
-type AgentRecord = {
-	agentId: number;
-	user?: {
-		username?: string;
-	};
-};
-
 type AgentDashboardData = {
 	summaryCards: SummaryCard[];
 	assignedTickets: Ticket[];

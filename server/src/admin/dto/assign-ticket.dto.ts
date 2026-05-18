@@ -1,6 +1,7 @@
-import { IsInt } from 'class-validator';
+import { IsInt, IsOptional } from 'class-validator';
 
 export class AssignTicketDto {
+  @IsOptional()
   @IsInt()
-  agentId: number;
+  agentId: number | null;
 }
