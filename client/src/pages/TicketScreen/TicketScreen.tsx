@@ -1,8 +1,7 @@
-import { useParams, useNavigate, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect } from "react";
 import "./TicketScreen.css";
-import { MOCK_AGENTS, MOCK_TICKETS } from "../../demo/mockTickets";
-import type { Agent, Ticket, TicketStatus, TicketType } from "../../types/types";
+import type { Ticket, TicketStatus, TicketType } from "../../types/types";
 import { parseJwtPayload } from "../../utils/api";
 import "./TicketTest.tsx"
 
@@ -41,9 +40,6 @@ const STATUS_LABEL: Record<TicketStatus, string> = {
   RESOLVED: "Resolved",
   CLOSED: "Closed",
 };
-
-// example tickets for demo/screen show off
-const exampleTickets: Ticket[] = MOCK_TICKETS;
 
 // const exampleTickets: []
 export default function TicketScreen() {
@@ -94,9 +90,6 @@ export default function TicketScreen() {
 
   const [statusHistory, setStatusHistory] = useState<any[]>([]);
 
-  const agents: Agent[] = MOCK_AGENTS;
-
-  const [viewerUsername, setViewerUsername] = useState<string>("");
   const [assignedToName, setAssignedToName] = useState<string>("Unassigned");
   const [resolvedAgentId, setResolvedAgentId] = useState<number | null>(null);
 

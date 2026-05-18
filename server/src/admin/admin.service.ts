@@ -288,18 +288,20 @@ async getTickets() {
   });
 }
 
-async assignTicket(ticketId: number, agentId: number) {
+async assignTicket(ticketId: number, agentId: number | null) {
   const ticket = await this.prisma.ticket.findUnique({
     where: { ticketId },
   });
 
   if (!ticket) throw new NotFoundException(`Ticket ${ticketId} not found`);
 
-  const agent = await this.prisma.agent.findUnique({
-    where: { agentId },
-  });
+  if (agentId !== null) {
+    const agent = await this.prisma.agent.findUnique({
+      where: { agentId },
+    });
 
-  if (!agent) throw new NotFoundException(`Agent ${agentId} not found`);
+    if (!agent) throw new NotFoundException(`Agent ${agentId} not found`);
+  }
 
   return this.prisma.ticket.update({
     where: { ticketId },

@@ -1,52 +1,142 @@
 import { Link, useNavigate } from "react-router-dom";
-import { useState } from "react";
-import { MOCK_AGENTS, MOCK_TICKETS } from "../../demo/mockTickets";
+import { useEffect, useState } from "react";
 import { STATUS_LABELS, TYPE_LABELS } from "../../config/dashboardConfig";
-import type { Agent, Ticket } from "../../types/types";
+import { apiFetch } from "../../utils/api";
+import type { TicketStatus, TicketType } from "../../types/types";
 
-const initialTickets: Ticket[] = MOCK_TICKETS;
-const agents: Agent[] = MOCK_AGENTS;
+type AdminTicket = {
+  ticketId: number;
+  title: string;
+  status: TicketStatus;
+  priority: string;
+  type: TicketType;
+  assignedToId: number | null;
+  updatedAt: string;
+  createdBy?: {
+    username?: string;
+  };
+};
 
-function getAgentName(agentId: number | null) {
-  if (agentId === null) return "Unassigned";
-  const match = agents.find((agent) => agent.id === agentId);
-  return match ? match.name : "Unknown Agent";
-}
+type AdminUser = {
+  userId: number;
+  username: string;
+  email: string;
+  role: string;
+  agent?: {
+    agentId: number;
+  } | null;
+};
+
+type AgentOption = {
+  id: number;
+  name: string;
+};
+
+type DashboardStats = {
+  totalUsers?: number;
+  totalTickets?: number;
+  openTickets?: number;
+  unassignedTickets?: number;
+  inProgressTickets?: number;
+};
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const [tickets, setTickets] = useState<Ticket[]>(initialTickets);
+
+  const [tickets, setTickets] = useState<AdminTicket[]>([]);
+  const [agents, setAgents] = useState<AgentOption[]>([]);
+  const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  async function loadAdminData() {
+    try {
+      setLoading(true);
+      setError("");
+
+      const [dashboardData, ticketData, userData] = await Promise.all([
+        apiFetch<DashboardStats>("/admin/dashboard"),
+        apiFetch<AdminTicket[]>("/admin/tickets"),
+        apiFetch<AdminUser[]>("/admin/users"),
+      ]);
+
+      setStats(dashboardData);
+      setTickets(ticketData);
+
+      setAgents(
+        userData
+          .filter((user) => user.role === "agent" && user.agent?.agentId != null)
+          .map((user) => ({
+            id: user.agent!.agentId,
+            name: user.username,
+          }))
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load admin dashboard.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadAdminData();
+  }, []);
 
   function handleSignOut() {
     sessionStorage.removeItem("USER_ROLE");
+    sessionStorage.removeItem("ACCESS_TOKEN");
+    sessionStorage.removeItem("REFRESH_TOKEN");
     navigate("/login");
   }
 
-  function handleAssign(ticketId: number, agentId: number | null) {
-    // Persist to the shared mock array so Agent/User dashboards and the
-    // TicketScreen reflect the assignment change.
-    const target = MOCK_TICKETS.find((t) => t.ticketId === ticketId);
-    if (target) {
-      target.assignedAgentId = agentId;
-      target.updatedAt = new Date().toISOString();
-    }
-
-    setTickets((prevTickets) =>
-      prevTickets.map((ticket) =>
-        ticket.ticketId === ticketId
-          ? { ...ticket, assignedAgentId: agentId }
-          : ticket
-      )
-    );
+  function getAgentName(agentId: number | null) {
+    if (agentId === null) return "Unassigned";
+    const match = agents.find((agent) => agent.id === agentId);
+    return match ? match.name : "Unknown Agent";
   }
 
-  const openTickets = tickets.filter((ticket) => ticket.status === 'OPEN').length;
-  const unassignedTickets = tickets.filter(
-    (ticket) => ticket.assignedAgentId === null
-  ).length;
-  const inProgressTickets = tickets.filter(
-    (ticket) => ticket.status === "IN_PROGRESS"
-  ).length;
+  async function handleAssign(ticketId: number, agentId: number | null) {
+    try {
+      setError("");
+
+      const updatedTicket = await apiFetch<AdminTicket>(
+        `/admin/tickets/${ticketId}/assign`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ agentId }),
+        }
+      );
+
+      setTickets((prevTickets) =>
+        prevTickets.map((ticket) =>
+          ticket.ticketId === ticketId ? updatedTicket : ticket
+        )
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to assign ticket.");
+    }
+  }
+
+  const openTickets =
+    stats?.openTickets ?? tickets.filter((ticket) => ticket.status === "OPEN").length;
+
+  const unassignedTickets =
+    stats?.unassignedTickets ??
+    tickets.filter((ticket) => ticket.assignedToId === null).length;
+
+  const inProgressTickets =
+    stats?.inProgressTickets ??
+    tickets.filter((ticket) => ticket.status === "IN_PROGRESS").length;
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-slate-100 px-6 py-10 text-slate-800">
+        <div className="mx-auto max-w-7xl">
+          <p className="text-lg font-medium">Loading admin dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-100 px-6 py-10 text-slate-800">
@@ -66,6 +156,12 @@ export default function AdminDashboard() {
             Sign out
           </button>
         </header>
+
+        {error && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {error}
+          </div>
+        )}
 
         <section className="mb-10 grid gap-4 md:grid-cols-3">
           <div className="rounded-2xl bg-white p-6 shadow-sm">
@@ -94,7 +190,7 @@ export default function AdminDashboard() {
         </section>
 
         <section className="grid gap-8 lg:grid-cols-3">
-          <div className="lg:col-span-2 rounded-2xl bg-white p-6 shadow-sm">
+          <div className="rounded-2xl bg-white p-6 shadow-sm lg:col-span-2">
             <div className="mb-6 flex items-center justify-between">
               <div>
                 <h2 className="text-2xl font-semibold">All Tickets</h2>
@@ -128,18 +224,20 @@ export default function AdminDashboard() {
 
                       <div className="space-y-1 text-sm text-slate-600">
                         <p>
-                          <span className="font-medium">Customer:</span> {ticket.customer}
+                          <span className="font-medium">Customer:</span>{" "}
+                          {ticket.createdBy?.username ?? "Unknown"}
                         </p>
                         <p>
-                          <span className="font-medium">Type:</span> {TYPE_LABELS[ticket.type] ?? ticket.type}
+                          <span className="font-medium">Type:</span>{" "}
+                          {TYPE_LABELS[ticket.type] ?? ticket.type}
                         </p>
                         <p>
                           <span className="font-medium">Assigned Agent:</span>{" "}
-                          {getAgentName(ticket.assignedAgentId)}
+                          {getAgentName(ticket.assignedToId)}
                         </p>
                         <p>
                           <span className="font-medium">Last Updated:</span>{" "}
-                          {ticket.updatedAt}
+                          {new Date(ticket.updatedAt).toLocaleString()}
                         </p>
                       </div>
                     </div>
@@ -150,10 +248,13 @@ export default function AdminDashboard() {
                       </label>
                       <select
                         className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
-                        value={ticket.assignedAgentId ?? ""}
+                        value={ticket.assignedToId ?? ""}
                         onChange={(e) => {
                           const value = e.target.value;
-                          handleAssign(ticket.ticketId, value === "" ? null : Number(value));
+                          handleAssign(
+                            ticket.ticketId,
+                            value === "" ? null : Number(value)
+                          );
                         }}
                       >
                         <option value="">Unassigned</option>
@@ -174,6 +275,12 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               ))}
+
+              {tickets.length === 0 && (
+                <p className="rounded-xl border border-slate-200 p-4 text-sm text-slate-500">
+                  No tickets found.
+                </p>
+              )}
             </div>
           </div>
 
@@ -195,11 +302,11 @@ export default function AdminDashboard() {
             </div>
 
             <div className="rounded-2xl bg-white p-6 shadow-sm">
-              <h2 className="text-xl font-semibold">Recent Activity</h2>
+              <h2 className="text-xl font-semibold">System Snapshot</h2>
               <ul className="mt-4 space-y-3 text-sm text-slate-600">
-                <li>Ticket #101 was created by Alice Carter.</li>
-                <li>Ticket #102 was assigned to Agent Johnson.</li>
-                <li>Ticket #104 is pending account verification follow-up.</li>
+                <li>Total Users: {stats?.totalUsers ?? "N/A"}</li>
+                <li>Total Tickets: {stats?.totalTickets ?? tickets.length}</li>
+                <li>Available Agents: {agents.length}</li>
               </ul>
             </div>
           </aside>
