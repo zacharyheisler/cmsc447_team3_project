@@ -33,7 +33,7 @@ export class TicketsService {
       include: {
         assignedTo: {
           select: {
-            agentId: true,       // ← add this
+            agentId: true,
             user: {
               select: { username: true }
             }

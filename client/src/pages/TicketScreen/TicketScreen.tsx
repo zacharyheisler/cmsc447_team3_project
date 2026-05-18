@@ -183,27 +183,20 @@ export default function TicketScreen() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         content: newMessage,
-        userId:
-          viewerRole === "user" ? Number(viewerUserId) : null,
-
-        agentId:
-          viewerRole === "agent" ? Number(resolvedAgentId) : null,
+        userId: viewerRole === "user" ? viewerUserId : null,
+        agentId: viewerRole === "agent" ? resolvedAgentId : null,
       }),
     });
 
     // add the message to the current messages  
-    setMessages([
-      ...messages,
+    setMessages((prev) => [
+      ...prev,
       {
-        messageId: messages.length + 1,
+        messageId: Date.now(), // temporary
         content: newMessage,
-        sender:
-          viewerRole === "admin"
-            ? "admin"
-            : viewerRole === "agent"
-              ? "agent"
-              : "user",
         sentAt: new Date().toISOString(),
+        userId: viewerRole === "user" ? viewerUserId : null,
+        agentId: viewerRole === "agent" ? resolvedAgentId : null,
       },
     ]);
 
@@ -461,12 +454,11 @@ export default function TicketScreen() {
             ) : (
               messages.map((msg) => {
                 const sender =
-                  msg.sender ??
-                  (msg.adminId
-                    ? "admin"
-                    : msg.agentId
-                      ? "agent"
-                      : "user");  // messages from DB
+                  msg.agentId
+                    ? "agent"
+                    : msg.userId
+                      ? "user"
+                      : "admin";
 
                 return (
                   <div key={msg.messageId} className={`message ${sender}`}>
